@@ -72,7 +72,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: plugins
-          path: releases/*.tar.gz
+          path: build/packages/*.tar.gz
 ```
 
 ### OCI Registry Push
@@ -111,40 +111,59 @@ jobs:
 
 ## Manifest Format
 
-Your plugin must include a `manifest.mf` file with the following structure:
+Your plugin must include a `manifest.mf` file in **JSON or YAML format** following the Command Launcher specification.
 
+📖 **Full specification**: [Command Launcher Manifest Documentation](https://criteo.github.io/command-launcher/docs/overview/manifest/)
+
+### Quick Example (JSON)
+
+```json
+{
+  "pkgName": "my-plugin",
+  "version": "1.0.0",
+  "cmds": [
+    {
+      "name": "my-plugin",
+      "type": "executable",
+      "short": "A brief description of what this plugin does",
+      "executable": "{{.PackageDir}}/bin/my-plugin"
+    }
+  ],
+  "_metadata": {
+    "author": "Your Name <email@example.com>",
+    "license": "MIT",
+    "homepage": "https://example.com"
+  }
+}
 ```
-Name: My Plugin
-Version: 1.0.0
-Command-Name: my-plugin
-Description: A brief description of what this plugin does
-Author: Your Name <email@example.com>
-License: MIT
-Homepage: https://example.com
-Repository: https://github.com/username/repo
+
+### Quick Example (YAML)
+
+```yaml
+pkgName: my-plugin
+version: 1.0.0
+cmds:
+  - name: my-plugin
+    type: executable
+    short: A brief description of what this plugin does
+    executable: "{{.PackageDir}}/bin/my-plugin"
+_metadata:
+  author: "Your Name <email@example.com>"
+  license: MIT
+  homepage: https://example.com
 ```
 
-### Required Fields
+### Key Fields
 
-- **Name** - Plugin display name
-- **Version** - Semantic version (e.g., `1.0.0`, `2.1.0-beta`)
-- **Command-Name** - CLI command name (lowercase, alphanumeric with hyphens)
+- **pkgName** - Package name (required)
+- **version** - Semantic version like `1.0.0` (required)
+- **cmds** - Array of commands (at least one required)
+  - **name** - Command name (required)
+  - **type** - Command type: `executable`, `alias`, or `starlark` (required)
+  - **short** - Brief description (recommended)
+  - **executable** - Path to executable for executable type
 
-### Optional Fields
-
-- **Description** - Human-readable description
-- **Author** - Plugin author/maintainer
-- **License** - SPDX license identifier
-- **Homepage** - Project homepage URL
-- **Repository** - Source repository URL
-- **Dependencies** - Comma-separated plugin dependencies
-- **Min-Launcher-Version** - Minimum launcher version
-- **Max-Launcher-Version** - Maximum launcher version
-- **OS** - Target operating systems (linux, darwin, windows)
-- **Arch** - Target architectures (amd64, arm64)
-- **Tags** - Comma-separated tags for categorization
-- **Entry-Point** - Main executable path
-- **Config-Schema** - JSON schema for configuration
+See the [official documentation](https://criteo.github.io/command-launcher/docs/overview/manifest/) for all available fields and advanced features.
 
 ## Repository Structure
 
@@ -406,7 +425,7 @@ jobs:
 
       - uses: softprops/action-gh-release@v1
         with:
-          files: releases/*.tar.gz
+          files: build/packages/*.tar.gz
 ```
 
 ### Documentation Only
@@ -438,24 +457,45 @@ jobs:
 
 ### Validation Failures
 
-**Error: Invalid version format**
+**Error: Invalid manifest format**
+
+Ensure your `manifest.mf` is valid JSON or YAML:
+```json
+{
+  "pkgName": "my-plugin",  // ❌ Wrong - no comments in JSON
+  "version": "1.0.0"
+}
 ```
-Version: v1.0.0  # ❌ Wrong
-Version: 1.0.0   # ✅ Correct
+
+```json
+{
+  "pkgName": "my-plugin",
+  "version": "1.0.0"        // ✅ Correct
+}
+```
+
+**Error: Invalid version format**
+
+Version must follow semantic versioning (no `v` prefix):
+```json
+"version": "v1.0.0"  // ❌ Wrong
+"version": "1.0.0"   // ✅ Correct
 ```
 
 **Error: Missing required field**
 
-Ensure your manifest includes all required fields: `Name`, `Version`, and `Command-Name`.
+Ensure your manifest includes: `pkgName`, `version`, and at least one command in `cmds` array.
 
 **Error: Invalid command name**
 
-Command names must be lowercase alphanumeric with hyphens only:
+Command names must be lowercase alphanumeric with hyphens:
+```json
+"name": "My-Plugin"   // ❌ Wrong (uppercase)
+"name": "my_plugin"   // ❌ Wrong (underscore)
+"name": "my-plugin"   // ✅ Correct
 ```
-Command-Name: My-Plugin  # ❌ Wrong (uppercase)
-Command-Name: my_plugin  # ❌ Wrong (underscore)
-Command-Name: my-plugin  # ✅ Correct
-```
+
+For complete validation rules, see the [manifest specification](https://criteo.github.io/command-launcher/docs/overview/manifest/).
 
 ### OCI Push Failures
 

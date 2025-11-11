@@ -1,18 +1,20 @@
-.PHONY: help test-validate test-package test-verify test-docs test-all clean install-deps
+.PHONY: help test-validate test-validate-valid test-validate-invalid test-package test-verify test-docs test-all clean install-deps dev
 
 # Default target
 help:
 	@echo "Cola Plugin Action - Development Makefile"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  make install-deps   - Install required dependencies"
-	@echo "  make test-validate  - Test manifest validation"
-	@echo "  make test-package   - Test plugin packaging"
-	@echo "  make test-verify    - Test package verification"
-	@echo "  make test-docs      - Test documentation generation"
-	@echo "  make test-all       - Run all tests"
-	@echo "  make clean          - Clean up test artifacts"
-	@echo "  make dev            - Quick validation for development"
+	@echo "  make install-deps          - Install required dependencies"
+	@echo "  make test-validate         - Test validation (both valid & invalid)"
+	@echo "  make test-validate-valid   - Test validation with valid plugins"
+	@echo "  make test-validate-invalid - Test validation with invalid plugins"
+	@echo "  make test-package          - Test plugin packaging"
+	@echo "  make test-verify           - Test package verification"
+	@echo "  make test-docs             - Test documentation generation"
+	@echo "  make test-all              - Run all tests"
+	@echo "  make clean                 - Clean up test artifacts"
+	@echo "  make dev                   - Quick validation for development"
 
 # Install dependencies (Ubuntu/Debian)
 install-deps:
@@ -28,26 +30,45 @@ install-deps:
 	fi
 	@echo "✓ Dependencies installed"
 
-# Test manifest validation
-test-validate:
+# Test manifest validation with valid plugins (should succeed)
+test-validate-valid:
 	@echo "================================"
-	@echo "Testing Manifest Validation"
+	@echo "Testing Validation (Valid Plugins)"
 	@echo "================================"
 	@mkdir -p build
-	@PLUGINS_DIR=tests/fixtures \
-	 GITHUB_OUTPUT=build/test_output.txt \
-	 bash scripts/validate-manifest.sh || true
+	@PLUGINS_DIR=tests/valid \
+	 GITHUB_OUTPUT=build/test_output_valid.txt \
+	 bash scripts/validate-manifest.sh
 	@echo ""
-	@echo "Output file contents:"
-	@cat build/test_output.txt || echo "(empty)"
+	@echo "✅ Valid plugins passed validation"
 
-# Test plugin packaging
+# Test manifest validation with invalid plugins (should fail)
+test-validate-invalid:
+	@echo "================================"
+	@echo "Testing Validation (Invalid Plugins - Expected Failure)"
+	@echo "================================"
+	@mkdir -p build
+	@if PLUGINS_DIR=tests/invalid \
+	    GITHUB_OUTPUT=build/test_output_invalid.txt \
+	    bash scripts/validate-manifest.sh 2>&1; then \
+		echo "❌ ERROR: Invalid plugins should have failed validation!"; \
+		exit 1; \
+	else \
+		echo "✅ Invalid plugins correctly failed validation"; \
+	fi
+
+# Test both valid and invalid validation
+test-validate: test-validate-valid test-validate-invalid
+	@echo ""
+	@echo "✅ All validation tests passed"
+
+# Test plugin packaging (only with valid plugins)
 test-package:
 	@echo "================================"
 	@echo "Testing Plugin Packaging"
 	@echo "================================"
 	@mkdir -p build/packages
-	@PLUGINS_DIR=tests/fixtures \
+	@PLUGINS_DIR=tests/valid \
 	 OUTPUT_DIR=build/packages \
 	 GITHUB_OUTPUT=build/test_output.txt \
 	 bash scripts/package-plugin.sh

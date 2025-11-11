@@ -6,35 +6,136 @@ on:
     branches: [main]
 
 jobs:
-  test-validation:
-    name: Test Validation
+  # Test validation with VALID plugins (should succeed)
+  test-validation-valid:
+    name: Test Validation (Valid Plugins)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Test validation script
+      - name: Validate valid plugins
         uses: ./
         with:
-          plugins-directory: 'tests/fixtures'
+          plugins-directory: 'tests/valid'
           validate-only: 'true'
 
-  test-packaging:
-    name: Test Packaging
+  # Test validation with INVALID plugins (should fail)
+  test-validation-invalid:
+    name: Test Validation (Invalid Plugins - Expected Failure)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Test packaging
+      - name: Validate invalid plugins (expect failure)
+        id: validate-invalid
+        continue-on-error: true
         uses: ./
         with:
-          plugins-directory: 'tests/fixtures'
+          plugins-directory: 'tests/invalid'
+          validate-only: 'true'
+
+      - name: Check validation failed as expected
+        run: |
+          if [ "${{ steps.validate-invalid.outcome }}" = "failure" ]; then
+            echo "✅ Validation correctly failed for invalid plugins"
+            exit 0
+          else
+            echo "❌ Validation should have failed but didn't!"
+            exit 1
+          fi
+
+  # Test packaging with valid plugins
+  test-packaging:
+    name: Test Packaging (tar.gz)
+    runs-on: ubuntu-latest
+    needs: test-validation-valid
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Package valid plugins
+        uses: ./
+        with:
+          plugins-directory: 'tests/valid'
           package-format: 'tar.gz'
           generate-docs: 'false'
+
+      - name: Verify packages were created
+        run: |
+          echo "📦 Checking for created packages..."
+          if [ ! -d "build/packages" ]; then
+            echo "❌ build/packages directory not found"
+            exit 1
+          fi
+
+          package_count=$(ls -1 build/packages/*.tar.gz 2>/dev/null | wc -l)
+          if [ "$package_count" -eq 0 ]; then
+            echo "❌ No tar.gz packages found"
+            exit 1
+          fi
+
+          echo "✅ Found $package_count package(s):"
+          ls -lh build/packages/*.tar.gz
 
       - name: Upload test artifacts
         uses: actions/upload-artifact@v4
         with:
           name: test-packages
           path: build/packages/*.tar.gz
+
+  # Test documentation generation with valid plugins
+  test-docs:
+    name: Test Documentation Generation
+    runs-on: ubuntu-latest
+    needs: test-validation-valid
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pandoc for better markdown rendering
+        run: sudo apt-get update && sudo apt-get install -y pandoc
+
+      - name: Install yq for manifest parsing
+        run: |
+          wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          chmod +x /usr/local/bin/yq
+
+      - name: Generate documentation locally
+        env:
+          PLUGINS_DIR: tests/valid
+          SKIP_BROWSER: 1
+        run: bash scripts/test-docs-locally.sh
+
+      - name: Verify documentation was generated
+        run: |
+          echo "📚 Checking for generated documentation..."
+
+          if [ ! -d "build/docs" ]; then
+            echo "❌ build/docs directory not found"
+            exit 1
+          fi
+
+          if [ ! -f "build/docs/index.html" ]; then
+            echo "❌ index.html not found"
+            exit 1
+          fi
+
+          # Count plugin pages
+          plugin_count=$(find build/docs/plugins -name "*.html" 2>/dev/null | wc -l)
+          echo "✅ Found index.html and $plugin_count plugin page(s)"
+
+          # List generated files
+          echo ""
+          echo "Generated files:"
+          ls -lh build/docs/*.html
+          echo ""
+          echo "Plugin pages:"
+          ls -lh build/docs/plugins/*.html 2>/dev/null || echo "No plugin pages"
+
+      - name: Upload documentation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-documentation
+          path: build/docs/

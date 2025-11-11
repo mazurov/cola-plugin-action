@@ -18,7 +18,7 @@ source "${SCRIPT_DIR}/common-docs.sh"
 log_header "Testing Documentation Generation Locally"
 
 # Configuration
-PLUGINS_DIR="${PLUGINS_DIR:-tests/fixtures}"
+PLUGINS_DIR="${PLUGINS_DIR:-tests/valid}"
 TEMPLATE_PATH="${TEMPLATE_PATH:-templates/plugin-page.html}"
 OUTPUT_DIR="${OUTPUT_DIR:-build/docs}"
 

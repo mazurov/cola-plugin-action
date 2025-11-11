@@ -103,7 +103,7 @@ test-docs:
 	@echo "================================"
 	@echo "Testing Documentation Generation"
 	@echo "================================"
-	@bash scripts/test-docs-locally.sh
+	@PLUGINS_DIR=tests/valid SKIP_BROWSER=1 bash scripts/test-docs-locally.sh
 	@echo ""
 	@echo "✓ Documentation test complete"
 	@echo "  Open: file://$(PWD)/build/docs/index.html"

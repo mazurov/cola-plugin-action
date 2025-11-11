@@ -27,6 +27,37 @@
           "required": false
         }
       ]
+    },
+    {
+      "name": "valid-check",
+      "type": "executable",
+      "group": "testing",
+      "short": "Check plugin validity and configuration",
+      "long": "Performs comprehensive validation checks on the plugin installation, configuration, and runtime environment. Useful for troubleshooting and verifying correct setup.",
+      "executable": "{{.PackageDir}}/bin/valid-check",
+      "flags": [
+        {
+          "name": "config",
+          "short": "c",
+          "desc": "Path to configuration file",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "strict",
+          "desc": "Enable strict validation mode",
+          "type": "bool",
+          "required": false
+        },
+        {
+          "name": "format",
+          "short": "f",
+          "desc": "Output format (text, json, yaml)",
+          "type": "string",
+          "default": "text",
+          "required": false
+        }
+      ]
     }
   ],
   "_metadata": {

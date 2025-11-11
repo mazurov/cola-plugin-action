@@ -77,6 +77,125 @@ build_metadata_html() {
     echo "$metadata_items"
 }
 
+# Build commands section HTML for a plugin
+# Usage: build_commands_html <manifest_file>
+build_commands_html() {
+    local manifest_file="$1"
+    local commands_html=""
+
+    # Check if yq is available
+    if ! command -v yq &> /dev/null; then
+        return
+    fi
+
+    # Get number of commands
+    local cmd_count=$(yq eval '.cmds | length' "$manifest_file" 2>/dev/null || echo "0")
+
+    if [[ "$cmd_count" == "null" ]] || [[ "$cmd_count" -eq 0 ]]; then
+        return
+    fi
+
+    commands_html="<div class=\"commands-section\"><h2>Commands</h2><div class=\"command-list\">"
+
+    # Iterate through commands
+    for i in $(seq 0 $((cmd_count - 1))); do
+        local name=$(yq eval ".cmds[$i].name" "$manifest_file" 2>/dev/null)
+        local type=$(yq eval ".cmds[$i].type" "$manifest_file" 2>/dev/null)
+        local short=$(yq eval ".cmds[$i].short" "$manifest_file" 2>/dev/null)
+        local long=$(yq eval ".cmds[$i].long" "$manifest_file" 2>/dev/null)
+        local executable=$(yq eval ".cmds[$i].executable" "$manifest_file" 2>/dev/null)
+        local alias_cmd=$(yq eval ".cmds[$i].alias" "$manifest_file" 2>/dev/null)
+        local group=$(yq eval ".cmds[$i].group" "$manifest_file" 2>/dev/null)
+
+        # Skip if name is null/empty
+        if [[ "$name" == "null" ]] || [[ -z "$name" ]]; then
+            continue
+        fi
+
+        # Start command card
+        commands_html+="<div class=\"command-card\">"
+
+        # Command header (name + type)
+        commands_html+="<div class=\"command-header\">"
+        commands_html+="<span class=\"command-code\">$(escape_html "$name")</span>"
+
+        if [[ "$type" != "null" ]] && [[ -n "$type" ]]; then
+            commands_html+="<span class=\"command-type\">$(escape_html "$type")</span>"
+        fi
+        commands_html+="</div>"
+
+        # Short description
+        if [[ "$short" != "null" ]] && [[ -n "$short" ]]; then
+            commands_html+="<p class=\"command-description\">$(escape_html "$short")</p>"
+        fi
+
+        # Long description
+        if [[ "$long" != "null" ]] && [[ -n "$long" ]]; then
+            commands_html+="<p class=\"command-description\">$(escape_html "$long")</p>"
+        fi
+
+        # Command details
+        local has_details=false
+        local details_html="<div class=\"command-details\">"
+
+        if [[ "$executable" != "null" ]] && [[ -n "$executable" ]]; then
+            details_html+="<span class=\"command-detail-label\">Executable:</span>"
+            details_html+="<span class=\"command-detail-value\">$(escape_html "$executable")</span>"
+            has_details=true
+        fi
+
+        if [[ "$alias_cmd" != "null" ]] && [[ -n "$alias_cmd" ]]; then
+            details_html+="<span class=\"command-detail-label\">Alias:</span>"
+            details_html+="<span class=\"command-detail-value\">$(escape_html "$alias_cmd")</span>"
+            has_details=true
+        fi
+
+        if [[ "$group" != "null" ]] && [[ -n "$group" ]]; then
+            details_html+="<span class=\"command-detail-label\">Group:</span>"
+            details_html+="<span class=\"command-detail-value\">$(escape_html "$group")</span>"
+            has_details=true
+        fi
+
+        # Check for flags
+        local flags_count=$(yq eval ".cmds[$i].flags | length" "$manifest_file" 2>/dev/null || echo "0")
+        if [[ "$flags_count" != "null" ]] && [[ "$flags_count" != "0" ]] && [[ "$flags_count" -gt 0 ]]; then
+            details_html+="<span class=\"command-detail-label\">Flags:</span>"
+            details_html+="<span class=\"command-detail-value\">"
+            for j in $(seq 0 $((flags_count - 1))); do
+                local flag_name=$(yq eval ".cmds[$i].flags[$j].name" "$manifest_file" 2>/dev/null)
+                local flag_short=$(yq eval ".cmds[$i].flags[$j].short" "$manifest_file" 2>/dev/null)
+                local flag_desc=$(yq eval ".cmds[$i].flags[$j].desc" "$manifest_file" 2>/dev/null)
+
+                if [[ "$flag_name" != "null" ]]; then
+                    if [[ "$j" -gt 0 ]]; then
+                        details_html+="<br>"
+                    fi
+                    details_html+="--$(escape_html "$flag_name")"
+                    if [[ "$flag_short" != "null" ]] && [[ -n "$flag_short" ]]; then
+                        details_html+=", -$(escape_html "$flag_short")"
+                    fi
+                    if [[ "$flag_desc" != "null" ]] && [[ -n "$flag_desc" ]]; then
+                        details_html+=": $(escape_html "$flag_desc")"
+                    fi
+                fi
+            done
+            details_html+="</span>"
+            has_details=true
+        fi
+
+        details_html+="</div>"
+
+        if [[ "$has_details" == "true" ]]; then
+            commands_html+="$details_html"
+        fi
+
+        commands_html+="</div>"
+    done
+
+    commands_html+="</div></div>"
+    echo "$commands_html"
+}
+
 # Generate a plugin documentation page
 # Usage: generate_plugin_page <manifest_file> <plugin_dir> <template_path> <output_file>
 # Returns: plugin_name|plugin_version|command_name|description (for index generation)
@@ -98,6 +217,9 @@ generate_plugin_page() {
     # Build metadata HTML
     local metadata_items=$(build_metadata_html "$manifest_file")
 
+    # Build commands section HTML
+    local commands_html=$(build_commands_html "$manifest_file")
+
     # Convert README to HTML
     local readme_html=$(markdown_to_html "${plugin_dir}README.md")
 
@@ -115,6 +237,7 @@ generate_plugin_page() {
     page_content=$(template_replace "$page_content" "{{PLUGIN_VERSION}}" "$(escape_html "$plugin_version")")
     page_content=$(template_replace "$page_content" "{{COMMAND_NAME}}" "$(escape_html "$command_name")")
     page_content=$(template_replace "$page_content" "{{METADATA_ITEMS}}" "$metadata_items")
+    page_content=$(template_replace "$page_content" "{{COMMANDS_SECTION}}" "$commands_html")
     page_content=$(template_replace "$page_content" "{{README_CONTENT}}" "$readme_html")
 
     # Write to file

@@ -225,35 +225,54 @@ make clean
 
 #### Testing Documentation Generation Locally
 
-The `make test-docs` command generates documentation locally for preview without pushing to GitHub:
+The `make test-docs` command generates versioned documentation from mock releases locally for preview without pushing to GitHub:
 
 ```bash
 make test-docs
 ```
 
 This will:
-1. Generate HTML documentation from plugin manifests in `tests/fixtures`
-2. Create an `index.html` and individual plugin pages in `build/docs/`
-3. Automatically open the documentation in your default browser
-4. Show the local file path for manual access
+1. Create mock GitHub Release archives for each plugin version in `tests/valid`
+2. Generate versioned HTML documentation from release assets
+3. Create version selectors for each plugin
+4. Output to `build/docs-from-releases/` with full version history
+5. Display the generated structure and version metadata
 
 **Manual testing with custom plugins:**
 
 ```bash
 # Test with your own plugin directory
-PLUGINS_DIR="my-plugins" bash scripts/test-docs-locally.sh
+PLUGINS_DIR="my-plugins" bash scripts/test-docs-from-releases.sh
 
 # Or modify the default location
 export PLUGINS_DIR="my-plugins"
 export TEMPLATE_PATH="templates/plugin-page.html"
-export OUTPUT_DIR="build/docs-custom"
-bash scripts/test-docs-locally.sh
+export OUTPUT_DIR="build/docs-from-releases-custom"
+bash scripts/test-docs-from-releases.sh
+```
+
+**Generated structure:**
+```
+build/docs-from-releases/
+├── index.html                    # Main landing page
+├── versions.json                 # Version metadata for all plugins
+└── plugins/
+    ├── plugin-one/
+    │   ├── index.html           # Version selector page
+    │   ├── v1.0.0/
+    │   │   └── index.html       # Plugin docs for v1.0.0
+    │   ├── v1.1.0/
+    │   │   └── index.html       # Plugin docs for v1.1.0
+    │   └── v2.0.0/
+    │       └── index.html       # Plugin docs for v2.0.0 (latest)
+    └── plugin-two/
+        └── ...
 ```
 
 **Serve with live reload:**
 
 ```bash
-cd build/docs
+cd build/docs-from-releases
 python3 -m http.server 8000
 # Open http://localhost:8000 in browser
 ```
@@ -275,8 +294,9 @@ bash scripts/package-plugin.sh
 # Verify package
 bash scripts/verify-package.sh build/packages/valid-test-1.0.0.tar.gz
 
-# View generated documentation
-open build/docs/index.html
+# Generate and view versioned documentation
+bash scripts/test-docs-from-releases.sh
+open build/docs-from-releases/index.html
 ```
 
 ### Build Directory Structure
@@ -285,15 +305,23 @@ All build artifacts are organized in the `build/` directory:
 
 ```
 build/
-├── packages/              # Packaged plugins
+├── packages/                      # Packaged plugins
 │   ├── plugin-1.0.0.tar.gz
 │   ├── plugin-1.0.0.json
 │   └── plugin-1.0.0.tar.gz.sha256
-├── docs/                  # Generated documentation
-│   ├── index.html
+├── docs-from-releases/            # Generated versioned documentation
+│   ├── index.html                # Main landing page
+│   ├── versions.json             # Version metadata
 │   └── plugins/
-│       └── plugin-name.html
-└── test_output.txt        # Test outputs
+│       ├── plugin-one/
+│       │   ├── index.html        # Version selector
+│       │   ├── v1.0.0/
+│       │   │   └── index.html
+│       │   └── v2.0.0/
+│       │       └── index.html
+│       └── plugin-two/
+│           └── ...
+└── test_output.txt                # Test outputs
 ```
 
 **Benefits:**

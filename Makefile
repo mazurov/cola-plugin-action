@@ -98,15 +98,21 @@ test-verify:
 		fi \
 	done
 
-# Test documentation generation
+# Test documentation generation from releases
 test-docs:
 	@echo "================================"
-	@echo "Testing Documentation Generation"
+	@echo "Testing Documentation Generation (From Releases)"
 	@echo "================================"
-	@PLUGINS_DIR=tests/valid SKIP_BROWSER=1 bash scripts/test-docs-locally.sh
+	@PLUGINS_DIR=tests/valid SKIP_BROWSER=1 bash scripts/test-docs-from-releases.sh
 	@echo ""
 	@echo "✓ Documentation test complete"
-	@echo "  Open: file://$(PWD)/build/docs/index.html"
+	@echo "  Open: file://$(PWD)/build/docs-from-releases/index.html"
+	@echo ""
+	@echo "Generated structure:"
+	@find build/docs-from-releases/plugins -type d -name "v*" 2>/dev/null | head -10 || true
+	@echo ""
+	@echo "Version metadata:"
+	@cat build/docs-from-releases/versions.json 2>/dev/null || true
 
 # Run all tests
 test-all: test-validate test-package test-verify test-docs

@@ -155,6 +155,7 @@ jobs:
           EOF
 
       - name: Create GitHub Release
+        id: create_release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.tag }}
@@ -166,8 +167,28 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
+          fail_on_unmatched_files: false  # Don't fail if some files are missing
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true  # Don't fail if release already exists
+
+      - name: Check if release already exists
+        if: steps.create_release.outcome == 'failure'
+        run: |
+          echo "⚠️  Release may already exist or had issues"
+          echo "Checking if release ${{ steps.version.outputs.tag }} exists..."
+
+          release_info=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ steps.version.outputs.tag }}")
+
+          if echo "$release_info" | jq -e '.id' > /dev/null; then
+            echo "✅ Release already exists: ${{ steps.version.outputs.tag }}"
+            echo "This is not an error - the release is already published"
+            exit 0
+          else
+            echo "❌ Release creation failed and release doesn't exist"
+            exit 1
+          fi
 
       - name: Publish to GitHub Container Registry
         run: |
@@ -192,3 +213,5 @@ jobs:
           echo "# Pull from OCI registry" >> $GITHUB_STEP_SUMMARY
           echo "oras pull ghcr.io/${{ github.repository_owner }}/<plugin-name>:${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> **Note:** Re-running this workflow is safe - versions already in OCI registry or GitHub Releases are automatically skipped" >> $GITHUB_STEP_SUMMARY

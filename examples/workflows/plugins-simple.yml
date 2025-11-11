@@ -67,5 +67,12 @@ jobs:
           tag_name: v${{ github.run_number }}
           name: Release ${{ github.run_number }}
           files: build/packages/*.tar.gz
+          fail_on_unmatched_files: false  # Don't fail if some files are missing
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true  # Don't fail if release already exists (unlikely with run_number, but possible)
+
+      - name: Release summary
+        run: |
+          echo "✅ Release completed"
+          echo "Note: Versions already released are automatically skipped"

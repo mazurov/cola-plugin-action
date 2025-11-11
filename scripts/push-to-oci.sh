@@ -105,6 +105,16 @@ for plugin_dir in "$PLUGINS_DIR"/*/ ; do
     safe_name=$(sanitize_name "$command_name")
     oci_ref="${OCI_REGISTRY}/${safe_name}"
 
+    # Check if this version already exists
+    if check_oci_tag_exists "$oci_ref" "$plugin_version"; then
+        log_warning "Version ${plugin_version} already exists in OCI registry: ${oci_ref}:${plugin_version}"
+        log_warning "Skipping push (already published)"
+        ((pushed_count++))  # Count as success since it exists
+        continue
+    fi
+
+    log_info "Version ${plugin_version} not found in registry, will push..."
+
     # Create temporary tar.gz for OCI push
     temp_dir=$(mktemp -d)
     temp_archive="${temp_dir}/plugin.tar.gz"
@@ -159,13 +169,14 @@ oras logout "$OCI_REGISTRY" 2>/dev/null || true
 
 # Summary
 log_header "OCI Push Summary"
-echo "Packages pushed: $pushed_count"
+echo "Packages processed: $pushed_count"
 
 if [[ $pushed_count -eq 0 ]]; then
-    log_warning "No packages were pushed"
+    log_warning "No packages were processed"
     exit 1
 fi
 
 echo ""
 log_success "OCI push completed successfully"
+log_info "Note: Versions already in registry were skipped (not an error)"
 exit 0

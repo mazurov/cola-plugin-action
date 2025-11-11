@@ -601,6 +601,89 @@ get_plugin_assets() {
     '
 }
 
+# Check if OCI tag exists in registry
+# Usage: check_oci_tag_exists <oci_ref> <tag>
+# Returns: 0 if exists, 1 if not exists
+check_oci_tag_exists() {
+    local oci_ref="$1"
+    local tag="$2"
+
+    if ! command -v oras &> /dev/null; then
+        log_warning "ORAS not available, cannot check OCI tag existence"
+        return 1
+    fi
+
+    # Try to fetch manifest (suppress output)
+    if oras manifest fetch "${oci_ref}:${tag}" &>/dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Check if GitHub Release tag exists
+# Usage: check_github_release_exists <owner/repo> <tag> <github_token>
+# Returns: 0 if exists, 1 if not exists
+check_github_release_exists() {
+    local repo="$1"
+    local tag="$2"
+    local token="${3:-$GITHUB_TOKEN}"
+
+    if [[ -z "$token" ]]; then
+        log_warning "GitHub token not available, cannot check release existence"
+        return 1
+    fi
+
+    local url="https://api.github.com/repos/${repo}/releases/tags/${tag}"
+    local response
+    response=$(curl -s -o /dev/null -w "%{http_code}" \
+                   -H "Authorization: token ${token}" \
+                   -H "Accept: application/vnd.github.v3+json" \
+                   "$url")
+
+    if [[ "$response" == "200" ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Check if asset exists in a GitHub Release
+# Usage: check_github_release_asset_exists <owner/repo> <tag> <asset_name> <github_token>
+# Returns: 0 if exists, 1 if not exists
+check_github_release_asset_exists() {
+    local repo="$1"
+    local tag="$2"
+    local asset_name="$3"
+    local token="${4:-$GITHUB_TOKEN}"
+
+    if [[ -z "$token" ]]; then
+        log_warning "GitHub token not available, cannot check asset existence"
+        return 1
+    fi
+
+    local url="https://api.github.com/repos/${repo}/releases/tags/${tag}"
+    local response
+    response=$(curl -s \
+                   -H "Authorization: token ${token}" \
+                   -H "Accept: application/vnd.github.v3+json" \
+                   "$url")
+
+    if [[ $? -ne 0 ]]; then
+        return 1
+    fi
+
+    # Check if asset exists in the response
+    local asset_exists
+    asset_exists=$(echo "$response" | jq -r --arg name "$asset_name" '.assets[]? | select(.name == $name) | .name' 2>/dev/null)
+
+    if [[ -n "$asset_exists" ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Export all functions for use in other scripts
 export -f log_info log_success log_error log_warning log_header log_section
 export -f get_manifest_field validate_semver validate_command_name
@@ -614,3 +697,4 @@ export -f init_summary increment_counter get_counter print_summary
 export -f die validate_required_fields
 export -f fetch_github_releases download_release_asset extract_archive_files
 export -f parse_plugin_from_archive get_plugin_assets
+export -f check_oci_tag_exists check_github_release_exists check_github_release_asset_exists

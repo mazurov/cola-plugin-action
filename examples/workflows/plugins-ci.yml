@@ -1,0 +1,323 @@
+# ==============================================================================
+# EXAMPLE WORKFLOW FOR PLUGIN REPOSITORIES
+# ==============================================================================
+# This is a template workflow for repositories that contain Command Launcher plugins.
+# Copy this file to YOUR plugin repository at: .github/workflows/plugins-ci.yml
+#
+# DO NOT use this in the cola-plugin-action repository itself!
+# ==============================================================================
+
+name: Plugin CI/CD Pipeline
+
+on:
+  push:
+    # Validate on pushes to ANY branch
+    # Only main/develop will create releases (controlled by job conditions)
+    paths:
+      - 'plugins/**'
+      - '.github/workflows/plugins-ci.yml'
+  pull_request:
+    # Validate on ALL pull requests (regardless of target branch)
+    paths:
+      - 'plugins/**'
+      - '.github/workflows/plugins-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  pages: write
+  id-token: write
+
+jobs:
+  # ============================================================================
+  # Validation Job - Runs on every push and PR
+  # ============================================================================
+  validate:
+    name: Validate Plugin Manifests
+    runs-on: ubuntu-latest
+    outputs:
+      validated-plugins: ${{ steps.validate.outputs.validated-plugins }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate manifests
+        id: validate
+        uses: criteo/cola-plugin-action@v1
+        with:
+          plugins-directory: 'plugins'
+          validate-only: 'true'
+
+      - name: Display validation results
+        run: |
+          echo "✅ Validation completed successfully"
+          echo "Validated plugins: ${{ steps.validate.outputs.validated-plugins }}"
+
+  # ============================================================================
+  # Test Package Job - Runs on PRs and branches
+  # ============================================================================
+  test-package:
+    name: Test Package Generation
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Package plugins (tar.gz)
+        uses: criteo/cola-plugin-action@v1
+        with:
+          plugins-directory: 'plugins'
+          package-format: 'tar.gz'
+          generate-docs: 'false'
+
+      - name: List generated packages
+        run: |
+          echo "📦 Generated packages:"
+          ls -lh build/packages/*.tar.gz
+
+      - name: Upload test packages as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-plugin-packages
+          path: build/packages/*.tar.gz
+          retention-days: 7
+
+  # ============================================================================
+  # Documentation Preview Job - Runs on PRs
+  # ============================================================================
+  docs-preview:
+    name: Generate Documentation Preview
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pandoc (for better markdown rendering)
+        run: sudo apt-get update && sudo apt-get install -y pandoc
+
+      - name: Generate documentation
+        uses: criteo/cola-plugin-action@v1
+        with:
+          plugins-directory: 'plugins'
+          validate-only: 'false'
+          generate-docs: 'true'
+          docs-branch: 'gh-pages-preview'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload documentation preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-preview
+          path: build/docs/
+          retention-days: 7
+
+      - name: Comment PR with preview link
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: artifacts } = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId,
+            });
+
+            const docsArtifact = artifacts.artifacts.find(a => a.name === 'docs-preview');
+
+            const comment = `## 📚 Documentation Preview Generated
+
+            ✅ Plugin manifests validated successfully
+
+            **Validated plugins:** ${{ needs.validate.outputs.validated-plugins }}
+
+            **Preview artifacts:**
+            - [Download documentation preview](${docsArtifact?.archive_download_url || 'N/A'})
+
+            The documentation will be published to GitHub Pages when this PR is merged to main.`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  # ============================================================================
+  # Release Job - Runs on main and develop branches only
+  # Creates GitHub Release and publishes to OCI registry
+  # ============================================================================
+  release:
+    name: Release Plugins
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+
+    outputs:
+      packaged-artifacts: ${{ steps.package.outputs.packaged-artifacts }}
+      docs-url: ${{ steps.publish-docs.outputs.url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better release notes
+
+      - name: Install pandoc (for better markdown rendering)
+        run: sudo apt-get update && sudo apt-get install -y pandoc
+
+      - name: Package and publish plugins
+        id: package
+        uses: criteo/cola-plugin-action@v1
+        with:
+          plugins-directory: 'plugins'
+          package-format: 'both'  # Create both tar.gz and OCI packages
+          oci-registry: 'ghcr.io/${{ github.repository_owner }}'
+          oci-username: ${{ github.actor }}
+          oci-token: ${{ secrets.GITHUB_TOKEN }}
+          generate-docs: 'false'  # We'll handle docs separately
+
+      - name: Generate and publish documentation
+        id: publish-docs
+        uses: criteo/cola-plugin-action@v1
+        with:
+          plugins-directory: 'plugins'
+          validate-only: 'false'
+          generate-docs: 'true'
+          docs-branch: 'gh-pages'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate release notes
+        id: release-notes
+        run: |
+          cat << 'EOF' > release-notes.md
+          # Command Launcher Plugins Release
+
+          ## 📦 Published Plugins
+
+          This release includes the following plugins:
+
+          EOF
+
+          # Parse validated plugins JSON and add to release notes
+          echo '${{ needs.validate.outputs.validated-plugins }}' | jq -r '.[]' | while read plugin; do
+            echo "- **${plugin}**" >> release-notes.md
+          done
+
+          cat << 'EOF' >> release-notes.md
+
+          ## 🚀 Installation
+
+          ### Via tar.gz (GitHub Releases)
+
+          Download the plugin archive from the assets below and extract it to your Command Launcher plugins directory:
+
+          ```bash
+          # Download and extract
+          tar -xzf <plugin-name>-<version>.tar.gz -C ~/.command-launcher/plugins/
+          ```
+
+          ### Via OCI Registry (Recommended)
+
+          Pull plugins directly from the GitHub Container Registry:
+
+          ```bash
+          # Using ORAS
+          oras pull ghcr.io/${{ github.repository_owner }}/<plugin-name>:<version>
+
+          # Or using Command Launcher (if supported)
+          cola plugin install ghcr.io/${{ github.repository_owner }}/<plugin-name>:<version>
+          ```
+
+          ## 📚 Documentation
+
+          Full documentation is available at: ${{ steps.publish-docs.outputs.url }}
+
+          ## 🔍 Registry Information
+
+          - **Registry:** ghcr.io/${{ github.repository_owner }}
+          - **Tags:** Each plugin is tagged with its version and `latest`
+          - **Authentication:** Use your GitHub token for private registries
+
+          ---
+
+          🤖 *Generated automatically by [Cola Plugin Action](https://github.com/criteo/cola-plugin-action)*
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: release-${{ github.run_number }}
+          name: Plugin Release ${{ github.run_number }}
+          body_path: release-notes.md
+          files: |
+            build/packages/*.tar.gz
+            build/packages/*.tar.gz.sha256
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "## ✅ Release Completed Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Published Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Packages:** ${{ steps.package.outputs.packaged-artifacts }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🌐 Documentation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📚 [View Plugin Documentation](${{ steps.publish-docs.outputs.url }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 OCI Registry" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Registry:** \`ghcr.io/${{ github.repository_owner }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Pull plugins with:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "oras pull ghcr.io/${{ github.repository_owner }}/<plugin-name>:latest" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # Cleanup Job - Clean up old artifacts and preview documentation
+  # ============================================================================
+  cleanup:
+    name: Cleanup Old Artifacts
+    runs-on: ubuntu-latest
+    needs: [release]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+
+    steps:
+      - name: Delete old workflow runs and artifacts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const days = 30;
+            const timestamp = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+            const { data: runs } = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'plugins-ci.yml',
+              status: 'success',
+              created: `<${timestamp}`,
+              per_page: 100
+            });
+
+            console.log(`Found ${runs.workflow_runs.length} old workflow runs`);
+
+            for (const run of runs.workflow_runs) {
+              console.log(`Deleting run ${run.id}`);
+              await github.rest.actions.deleteWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: run.id
+              });
+            }

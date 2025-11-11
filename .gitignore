@@ -1,0 +1,102 @@
+# Build outputs (all generated artifacts go here)
+build/
+
+# Legacy output directories (kept for backwards compatibility)
+releases/
+dist/
+test-releases/
+test-extracted/
+docs-preview/
+
+# Temporary files
+*.swp
+*.swo
+*~
+.*.sw[a-z]
+*.tmp
+*.bak
+*.orig
+/tmp/test_output.txt
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.iml
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+
+# Node.js (if adding npm scripts later)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn
+
+# Python (if adding Python tools later)
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+.venv/
+
+# Archives
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+*.rar
+
+# Logs
+*.log
+logs/
+
+# Coverage reports
+coverage/
+*.lcov
+.nyc_output/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+!*.key.pub
+
+# Testing
+.cache/
+.pytest_cache/
+
+# GitHub Actions local testing
+.secrets

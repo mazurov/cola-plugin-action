@@ -1,0 +1,26 @@
+pkgName: yaml-test-plugin
+version: 1.0.0
+cmds:
+  - name: yaml-test
+    type: executable
+    group: testing
+    short: A YAML format test plugin
+    long: This is a test plugin using YAML format for the manifest
+    executable: "{{.PackageDir}}/bin/yaml-test"
+    args: []
+    flags:
+      - name: verbose
+        short: v
+        desc: Enable verbose output
+        type: bool
+        required: false
+
+_metadata:
+  author: YAML Test Author <yaml@example.com>
+  license: Apache-2.0
+  homepage: https://example.com/yaml-plugin
+  repository: https://github.com/example/yaml-plugin
+  tags:
+    - yaml
+    - test
+    - example

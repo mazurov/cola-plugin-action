@@ -1,0 +1,5 @@
+{
+  "pkgName": "invalid-test-plugin",
+  "version": "not-a-valid-version",
+  "cmds": []
+}

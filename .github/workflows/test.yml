@@ -1,0 +1,40 @@
+name: Test Action
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test-validation:
+    name: Test Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test validation script
+        uses: ./
+        with:
+          plugins-directory: 'tests/fixtures'
+          validate-only: 'true'
+
+  test-packaging:
+    name: Test Packaging
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test packaging
+        uses: ./
+        with:
+          plugins-directory: 'tests/fixtures'
+          package-format: 'tar.gz'
+          generate-docs: 'false'
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-packages
+          path: build/packages/*.tar.gz

@@ -1,0 +1,39 @@
+{
+  "pkgName": "valid-test-plugin",
+  "version": "1.0.0",
+  "cmds": [
+    {
+      "name": "valid-test",
+      "type": "executable",
+      "group": "testing",
+      "short": "A valid test plugin for validation testing",
+      "long": "This is a complete test plugin with all required fields for testing the Cola Plugin Action validation and packaging functionality.",
+      "executable": "{{.PackageDir}}/bin/valid-test",
+      "args": [],
+      "flags": [
+        {
+          "name": "verbose",
+          "short": "v",
+          "desc": "Enable verbose output",
+          "type": "bool",
+          "required": false
+        },
+        {
+          "name": "output",
+          "short": "o",
+          "desc": "Output file path",
+          "type": "string",
+          "default": "output.txt",
+          "required": false
+        }
+      ]
+    }
+  ],
+  "_metadata": {
+    "author": "Test Author <test@example.com>",
+    "license": "MIT",
+    "homepage": "https://example.com/valid-plugin",
+    "repository": "https://github.com/example/valid-plugin",
+    "tags": ["test", "utility", "example"]
+  }
+}

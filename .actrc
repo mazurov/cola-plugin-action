@@ -1,0 +1,14 @@
+# act configuration file
+# This file contains default options for running GitHub Actions locally with act
+
+# Use compatible Docker image
+-P ubuntu-latest=catthehacker/ubuntu:act-latest
+
+# Bind mount current directory for better performance
+--bind
+
+# Verbose output for debugging
+-v
+
+# Detect event from git (push, pull_request, etc)
+--detect-event

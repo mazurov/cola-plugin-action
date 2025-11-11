@@ -1,0 +1,129 @@
+name: 'Cola Plugin Action'
+description: 'Validate, package, and publish Command Launcher plugins'
+author: 'Alexander @ Criteo'
+
+branding:
+  icon: 'package'
+  color: 'blue'
+
+inputs:
+  plugins-directory:
+    description: 'Root directory containing plugin subdirectories'
+    required: true
+    default: 'plugins'
+
+  validate-only:
+    description: 'Only validate manifests without packaging'
+    required: false
+    default: 'false'
+
+  package-format:
+    description: 'Package format: tar.gz, oci, or both'
+    required: false
+    default: 'tar.gz'
+
+  oci-registry:
+    description: 'OCI registry URL (e.g., ghcr.io/username)'
+    required: false
+    default: ''
+
+  oci-username:
+    description: 'OCI registry username'
+    required: false
+    default: ''
+
+  oci-token:
+    description: 'OCI registry token/password'
+    required: false
+    default: ''
+
+  generate-docs:
+    description: 'Generate documentation pages'
+    required: false
+    default: 'true'
+
+  docs-branch:
+    description: 'Branch to push documentation'
+    required: false
+    default: 'gh-pages'
+
+  github-token:
+    description: 'GitHub token for pushing to gh-pages'
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  validated-plugins:
+    description: 'JSON array of validated plugin directories'
+    value: ${{ steps.validate.outputs.plugins }}
+
+  packaged-artifacts:
+    description: 'JSON array of created artifact paths'
+    value: ${{ steps.package.outputs.artifacts }}
+
+  docs-url:
+    description: 'URL to generated documentation'
+    value: ${{ steps.docs.outputs.url }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install dependencies
+      shell: bash
+      run: |
+        echo "Installing dependencies..."
+        if ! command -v jq &> /dev/null; then
+          sudo apt-get update -qq
+          sudo apt-get install -y jq
+        fi
+        if ! command -v zip &> /dev/null; then
+          sudo apt-get install -y zip
+        fi
+        echo "Dependencies installed"
+
+    - name: Validate manifests
+      id: validate
+      shell: bash
+      env:
+        PLUGINS_DIR: ${{ inputs.plugins-directory }}
+      run: |
+        echo "Validating plugin manifests..."
+        bash ${{ github.action_path }}/scripts/validate-manifest.sh
+
+    - name: Package plugins
+      id: package
+      if: inputs.validate-only != 'true'
+      shell: bash
+      env:
+        PLUGINS_DIR: ${{ inputs.plugins-directory }}
+        OUTPUT_DIR: build/packages
+        PACKAGE_FORMAT: ${{ inputs.package-format }}
+      run: |
+        echo "Packaging plugins..."
+        bash ${{ github.action_path }}/scripts/package-plugin.sh
+
+    - name: Push to OCI registry
+      if: inputs.validate-only != 'true' && (inputs.package-format == 'oci' || inputs.package-format == 'both')
+      shell: bash
+      env:
+        OCI_REGISTRY: ${{ inputs.oci-registry }}
+        OCI_USERNAME: ${{ inputs.oci-username }}
+        OCI_TOKEN: ${{ inputs.oci-token }}
+        PLUGINS_DIR: ${{ inputs.plugins-directory }}
+      run: |
+        echo "Pushing to OCI registry..."
+        bash ${{ github.action_path }}/scripts/push-to-oci.sh
+
+    - name: Generate documentation
+      id: docs
+      if: inputs.validate-only != 'true' && inputs.generate-docs == 'true'
+      shell: bash
+      env:
+        PLUGINS_DIR: ${{ inputs.plugins-directory }}
+        DOCS_BRANCH: ${{ inputs.docs-branch }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        TEMPLATE_PATH: ${{ github.action_path }}/templates/plugin-page.html
+      run: |
+        echo "Generating documentation..."
+        bash ${{ github.action_path }}/scripts/generate-docs.sh

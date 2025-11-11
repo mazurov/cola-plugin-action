@@ -38,7 +38,7 @@ inputs:
     default: ''
 
   generate-docs:
-    description: 'Generate documentation pages'
+    description: 'Generate documentation pages from GitHub Release assets'
     required: false
     default: 'true'
 
@@ -47,8 +47,13 @@ inputs:
     required: false
     default: 'gh-pages'
 
+  docs-keep-versions:
+    description: 'Number of versions to keep per plugin (0 = keep all versions)'
+    required: false
+    default: '0'
+
   github-token:
-    description: 'GitHub token for pushing to gh-pages'
+    description: 'GitHub token for pushing to gh-pages and accessing releases'
     required: false
     default: ${{ github.token }}
 
@@ -119,11 +124,12 @@ runs:
       if: inputs.validate-only != 'true' && inputs.generate-docs == 'true'
       shell: bash
       env:
-        PLUGINS_DIR: ${{ inputs.plugins-directory }}
         DOCS_BRANCH: ${{ inputs.docs-branch }}
+        DOCS_KEEP_VERSIONS: ${{ inputs.docs-keep-versions }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         TEMPLATE_PATH: ${{ github.action_path }}/templates/plugin-page.html
+        ACTION_PATH: ${{ github.action_path }}
       run: |
-        echo "Generating documentation..."
+        echo "Generating documentation from GitHub Releases..."
         bash ${{ github.action_path }}/scripts/generate-docs.sh

@@ -85,9 +85,9 @@ jobs:
           name: test-packages
           path: build/packages/*.tar.gz
 
-  # Test documentation generation with valid plugins
+  # Test documentation generation from releases
   test-docs:
-    name: Test Documentation Generation
+    name: Test Documentation Generation (From Releases)
     runs-on: ubuntu-latest
     needs: test-validation-valid
     steps:
@@ -102,40 +102,57 @@ jobs:
           wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           chmod +x /usr/local/bin/yq
 
-      - name: Generate documentation locally
+      - name: Generate documentation from mock releases
         env:
           PLUGINS_DIR: tests/valid
           SKIP_BROWSER: 1
-        run: bash scripts/test-docs-locally.sh
+        run: bash scripts/test-docs-from-releases.sh
 
-      - name: Verify documentation was generated
+      - name: Verify versioned documentation was generated
         run: |
-          echo "📚 Checking for generated documentation..."
+          echo "📚 Checking for generated versioned documentation..."
 
-          if [ ! -d "build/docs" ]; then
-            echo "❌ build/docs directory not found"
+          if [ ! -d "build/docs-from-releases" ]; then
+            echo "❌ build/docs-from-releases directory not found"
             exit 1
           fi
 
-          if [ ! -f "build/docs/index.html" ]; then
-            echo "❌ index.html not found"
+          if [ ! -f "build/docs-from-releases/index.html" ]; then
+            echo "❌ Root index.html not found"
             exit 1
           fi
 
-          # Count plugin pages
-          plugin_count=$(find build/docs/plugins -name "*.html" 2>/dev/null | wc -l)
-          echo "✅ Found index.html and $plugin_count plugin page(s)"
+          if [ ! -f "build/docs-from-releases/versions.json" ]; then
+            echo "❌ versions.json not found"
+            exit 1
+          fi
 
-          # List generated files
+          # Verify versioned plugin structure
+          if [ ! -d "build/docs-from-releases/plugins" ]; then
+            echo "❌ plugins directory not found"
+            exit 1
+          fi
+
+          # Count versioned plugin pages
+          version_count=$(find build/docs-from-releases/plugins -type d -name "v*" 2>/dev/null | wc -l)
+          echo "✅ Found $version_count versioned plugin page(s)"
+
+          # Verify version selectors exist
+          selector_count=$(find build/docs-from-releases/plugins -name "index.html" 2>/dev/null | wc -l)
+          echo "✅ Found $selector_count version index page(s)"
+
+          # Display versions.json content
           echo ""
-          echo "Generated files:"
-          ls -lh build/docs/*.html
+          echo "versions.json content:"
+          cat build/docs-from-releases/versions.json
+
+          # List generated structure
           echo ""
-          echo "Plugin pages:"
-          ls -lh build/docs/plugins/*.html 2>/dev/null || echo "No plugin pages"
+          echo "Generated structure:"
+          tree -L 4 build/docs-from-releases/ || find build/docs-from-releases/ -type f -name "*.html" | head -20
 
       - name: Upload documentation artifacts
         uses: actions/upload-artifact@v4
         with:
           name: test-documentation
-          path: build/docs/
+          path: build/docs-from-releases/

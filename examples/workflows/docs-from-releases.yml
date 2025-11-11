@@ -1,0 +1,163 @@
+# ==============================================================================
+# EXAMPLE WORKFLOW FOR PLUGIN REPOSITORIES
+# ==============================================================================
+# This is a template workflow for repositories that want to regenerate
+# documentation from GitHub Releases instead of the current repository state.
+#
+# Copy this file to YOUR plugin repository at: .github/workflows/update-docs.yml
+#
+# DO NOT use this in the cola-plugin-action repository itself!
+# ==============================================================================
+
+name: Update Documentation from Releases
+
+# This workflow regenerates documentation from all GitHub Release assets
+# Run on a schedule, manually, or after each release
+
+on:
+  # Run weekly to pick up any new releases
+  schedule:
+    - cron: '0 0 * * 0'  # Every Sunday at midnight UTC
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+  # Run after each release is published
+  release:
+    types: [published]
+
+permissions:
+  contents: write    # Required for pushing to gh-pages
+  pages: write       # Required for GitHub Pages deployment
+
+jobs:
+  regenerate-docs:
+    name: Regenerate Documentation from Releases
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install pandoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc
+
+      - name: Generate documentation from releases
+        id: docs
+        uses: criteo/cola-plugin-action@v1
+        with:
+          generate-docs: 'true'
+          docs-branch: 'gh-pages'
+          docs-keep-versions: '0'  # Keep all versions (or set to N to keep only N latest per plugin)
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Note: Documentation is always generated from GitHub Release assets
+          # The action fetches all releases and extracts manifests/READMEs from archives
+
+      - name: Output documentation URL
+        run: |
+          echo "📚 Documentation updated: ${{ steps.docs.outputs.url }}"
+          echo "Documentation URL: ${{ steps.docs.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Create summary
+        run: |
+          echo "## 📚 Documentation Regenerated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Documentation has been regenerated from all GitHub Release assets." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Documentation URL:** [${{ steps.docs.outputs.url }}](${{ steps.docs.outputs.url }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### How it works" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. Fetches all releases from GitHub" >> $GITHUB_STEP_SUMMARY
+          echo "2. Downloads all `.tar.gz` plugin archives" >> $GITHUB_STEP_SUMMARY
+          echo "3. Extracts manifest and README from each archive" >> $GITHUB_STEP_SUMMARY
+          echo "4. Generates versioned documentation pages" >> $GITHUB_STEP_SUMMARY
+          echo "5. Pushes to gh-pages branch" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All plugin versions from releases are now documented!" >> $GITHUB_STEP_SUMMARY
+
+# ==============================================================================
+# ALTERNATIVE: Combined Release + Documentation Workflow
+# ==============================================================================
+# If you want to combine releasing and documentation in a single workflow,
+# use this configuration instead:
+
+# name: Release and Update Documentation
+#
+# on:
+#   push:
+#     tags:
+#       - 'v*.*.*'
+#
+# jobs:
+#   release:
+#     name: Build and Release Plugins
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       # First, create the release with plugin archives
+#       - name: Package and release plugins
+#         uses: criteo/cola-plugin-action@v1
+#         with:
+#           plugins-directory: 'plugins'
+#           package-format: 'tar.gz'
+#           generate-docs: 'false'  # Don't generate docs yet
+#
+#       - name: Create GitHub Release
+#         uses: softprops/action-gh-release@v1
+#         with:
+#           files: build/packages/*.tar.gz
+#         env:
+#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#
+#   documentation:
+#     name: Update Documentation from Releases
+#     runs-on: ubuntu-latest
+#     needs: release  # Wait for release to complete
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - name: Install pandoc
+#         run: sudo apt-get update && sudo apt-get install -y pandoc
+#
+#       # Now generate docs from all releases (including the new one)
+#       - name: Regenerate documentation from releases
+#         uses: criteo/cola-plugin-action@v1
+#         with:
+#           generate-docs: 'true'
+#           docs-branch: 'gh-pages'
+#           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+# ==============================================================================
+# TIPS AND BEST PRACTICES
+# ==============================================================================
+#
+# 1. **Scheduled Updates**: Use the schedule trigger to regularly sync docs
+#    with releases, especially useful if you manually edit/delete releases.
+#
+# 2. **Version Cleanup**: Set docs-keep-versions to limit how many versions
+#    are documented. For example, docs-keep-versions: '3' keeps only the
+#    3 newest versions of each plugin.
+#
+# 3. **Release Requirements**: Your releases must contain plugin archives
+#    named in the format: {plugin-name}-{version}.tar.gz
+#    The archive must contain:
+#    - manifest.mf (required)
+#    - README.md (optional but recommended)
+#
+# 4. **GitHub Pages**: Ensure GitHub Pages is enabled in repository settings
+#    and configured to serve from the gh-pages branch.
+#
+# 5. **Permissions**: This workflow requires contents:write and pages:write
+#    permissions. These are granted automatically to GITHUB_TOKEN.
+#
+# 6. **Rate Limits**: The GitHub API has rate limits. For repos with many
+#    releases (>100), the action uses pagination automatically.
+#
+# 7. **Private Repos**: Works with private repositories as long as the
+#    GITHUB_TOKEN has access to releases and can push to gh-pages.
+#
+# ==============================================================================

@@ -65,6 +65,10 @@
     "license": "MIT",
     "homepage": "https://example.com/valid-plugin",
     "repository": "https://github.com/example/valid-plugin",
-    "tags": ["test", "utility", "example"]
+    "tags": [
+      "test",
+      "utility",
+      "example"
+    ]
   }
 }

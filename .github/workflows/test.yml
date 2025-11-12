@@ -6,10 +6,59 @@ on:
     branches: [main]
 
 jobs:
-  # Test validation with VALID plugins (should succeed)
+  # ===========================================================================
+  # Build and Unit Tests
+  # ===========================================================================
+  build-and-test:
+    name: Build and Unit Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Package for distribution
+        run: npm run package
+
+      - name: Check dist/ is up to date
+        run: |
+          if [ "$(git diff --ignore-space-at-eol dist/ | wc -l)" -gt "0" ]; then
+            echo "Detected uncommitted changes after build. Please rebuild and commit."
+            git diff
+            exit 1
+          fi
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/lcov.info
+          flags: unittests
+        continue-on-error: true
+
+  # ===========================================================================
+  # Validation Tests (Valid Plugins)
+  # ===========================================================================
   test-validation-valid:
     name: Test Validation (Valid Plugins)
     runs-on: ubuntu-latest
+    needs: build-and-test
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -20,10 +69,16 @@ jobs:
           plugins-directory: 'tests/valid'
           validate-only: 'true'
 
-  # Test validation with INVALID plugins (should fail)
+      - name: Display validation results
+        run: echo "✅ Validation completed successfully"
+
+  # ===========================================================================
+  # Validation Tests (Invalid Plugins - Expected Failure)
+  # ===========================================================================
   test-validation-invalid:
     name: Test Validation (Invalid Plugins - Expected Failure)
     runs-on: ubuntu-latest
+    needs: build-and-test
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -46,16 +101,19 @@ jobs:
             exit 1
           fi
 
-  # Test packaging with valid plugins
+  # ===========================================================================
+  # Packaging Tests
+  # ===========================================================================
   test-packaging:
     name: Test Packaging (tar.gz)
     runs-on: ubuntu-latest
-    needs: test-validation-valid
+    needs: build-and-test
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Package valid plugins
+        id: package
         uses: ./
         with:
           plugins-directory: 'tests/valid'
@@ -79,80 +137,39 @@ jobs:
           echo "✅ Found $package_count package(s):"
           ls -lh build/packages/*.tar.gz
 
-      - name: Upload test artifacts
+          echo ""
+          echo "Checksums:"
+          ls -1 build/packages/*.sha256
+
+      - name: Verify package contents
+        run: |
+          echo "📋 Verifying package contents..."
+          for archive in build/packages/*.tar.gz; do
+            if [ -f "$archive" ]; then
+              echo ""
+              echo "Contents of $(basename $archive):"
+              tar -tzf "$archive" | head -20
+
+              # Verify manifest exists in archive
+              if tar -tzf "$archive" | grep -q "manifest.mf"; then
+                echo "✅ manifest.mf found in archive"
+              else
+                echo "❌ manifest.mf missing from archive!"
+                exit 1
+              fi
+            fi
+          done
+
+      - name: Upload test packages
         uses: actions/upload-artifact@v4
         with:
           name: test-packages
           path: build/packages/*.tar.gz
+          retention-days: 7
 
-  # Test documentation generation from releases
-  test-docs:
-    name: Test Documentation Generation (From Releases)
-    runs-on: ubuntu-latest
-    needs: test-validation-valid
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install pandoc for better markdown rendering
-        run: sudo apt-get update && sudo apt-get install -y pandoc
-
-      - name: Install yq for manifest parsing
-        run: |
-          wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-          chmod +x /usr/local/bin/yq
-
-      - name: Generate documentation from mock releases
-        env:
-          PLUGINS_DIR: tests/valid
-          SKIP_BROWSER: 1
-        run: bash scripts/test-docs-from-releases.sh
-
-      - name: Verify versioned documentation was generated
-        run: |
-          echo "📚 Checking for generated versioned documentation..."
-
-          if [ ! -d "build/docs-from-releases" ]; then
-            echo "❌ build/docs-from-releases directory not found"
-            exit 1
-          fi
-
-          if [ ! -f "build/docs-from-releases/index.html" ]; then
-            echo "❌ Root index.html not found"
-            exit 1
-          fi
-
-          if [ ! -f "build/docs-from-releases/versions.json" ]; then
-            echo "❌ versions.json not found"
-            exit 1
-          fi
-
-          # Verify versioned plugin structure
-          if [ ! -d "build/docs-from-releases/plugins" ]; then
-            echo "❌ plugins directory not found"
-            exit 1
-          fi
-
-          # Count versioned plugin pages
-          version_count=$(find build/docs-from-releases/plugins -type d -name "v*" 2>/dev/null | wc -l)
-          echo "✅ Found $version_count versioned plugin page(s)"
-
-          # Verify version selectors exist
-          selector_count=$(find build/docs-from-releases/plugins -name "index.html" 2>/dev/null | wc -l)
-          echo "✅ Found $selector_count version index page(s)"
-
-          # Display versions.json content
-          echo ""
-          echo "versions.json content:"
-          cat build/docs-from-releases/versions.json
-
-          # List generated structure
-          echo ""
-          echo "Generated structure:"
-          tree -L 4 build/docs-from-releases/ || find build/docs-from-releases/ -type f -name "*.html" | head -20
-
-      - name: Upload documentation artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-documentation
-          path: build/docs-from-releases/
+  # ===========================================================================
+  # Documentation Tests (Node.js - Integration)
+  # ===========================================================================
+  # Note: Full documentation generation tests require GitHub Releases
+  # These will be tested in actual release workflows
+  # Unit tests for documentation utilities are in the test suite

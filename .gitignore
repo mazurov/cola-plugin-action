@@ -3,10 +3,14 @@ build/
 
 # Legacy output directories (kept for backwards compatibility)
 releases/
-dist/
 test-releases/
 test-extracted/
 docs-preview/
+
+# TypeScript compiled output
+lib/
+dist/
+*.tsbuildinfo
 
 # Temporary files
 *.swp

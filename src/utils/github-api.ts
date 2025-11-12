@@ -142,7 +142,10 @@ export class GitHubClient {
             if (!pluginAssets.has(pluginName)) {
               pluginAssets.set(pluginName, []);
             }
-            pluginAssets.get(pluginName)!.push(asset);
+            const assets = pluginAssets.get(pluginName);
+            if (assets) {
+              assets.push(asset);
+            }
           }
         }
       }

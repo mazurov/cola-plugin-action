@@ -74,10 +74,7 @@ export async function generateChecksum(filePath: string): Promise<string> {
   return hash.digest('hex');
 }
 
-export async function verifyChecksum(
-  filePath: string,
-  expectedChecksum: string
-): Promise<boolean> {
+export async function verifyChecksum(filePath: string, expectedChecksum: string): Promise<boolean> {
   const actualChecksum = await generateChecksum(filePath);
   return actualChecksum === expectedChecksum;
 }
@@ -131,8 +128,7 @@ export async function extractArchiveFiles(
       filter: (filePath: string) => {
         // Check if any requested file matches this path
         return files.some(
-          requestedFile =>
-            filePath.includes(requestedFile) || filePath.endsWith(requestedFile)
+          requestedFile => filePath.includes(requestedFile) || filePath.endsWith(requestedFile)
         );
       },
     });

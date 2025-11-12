@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+/* eslint-disable no-console */
 /**
  * Local documentation testing - Generate docs from mock releases
  * Uses shared utilities to generate documentation without GitHub API
@@ -205,7 +206,7 @@ function generateFallbackHtml(doc: PluginDoc, versionSelector: string): string {
 </html>`;
 }
 
-async function main() {
+async function main(): Promise<void> {
   console.log('================================');
   console.log('Documentation Generator');
   console.log('Uses shared utilities from src/');
@@ -221,7 +222,10 @@ async function main() {
       if (!pluginArchives.has(parsed.name)) {
         pluginArchives.set(parsed.name, []);
       }
-      pluginArchives.get(parsed.name)!.push(path.join(RELEASES_DIR, archive));
+      const archiveList = pluginArchives.get(parsed.name);
+      if (archiveList) {
+        archiveList.push(path.join(RELEASES_DIR, archive));
+      }
     }
   }
 
@@ -248,7 +252,11 @@ async function main() {
   console.log('Run: npm run test:docs-serve\n');
 }
 
-main().catch(err => {
-  console.error('\nError:', err.message);
-  process.exit(1);
-});
+(async (): Promise<void> => {
+  try {
+    await main();
+  } catch (err) {
+    console.error('\nError:', (err as Error).message);
+    process.exit(1);
+  }
+})();

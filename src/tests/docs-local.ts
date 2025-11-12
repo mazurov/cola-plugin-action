@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+/* eslint-disable no-console */
 /**
  * Local documentation testing - Setup mock releases
  * Creates test plugin archives for documentation generation testing
@@ -27,8 +28,8 @@ async function createMockRelease(
 
   // Modify manifest version (supports both JSON and YAML formats)
   const manifest = baseManifest
-    .replace(/"version":\s*"[^"]*"/, `"version": "${version}"`)  // JSON format
-    .replace(/^version:\s*.+$/m, `version: ${version}`);          // YAML format
+    .replace(/"version":\s*"[^"]*"/, `"version": "${version}"`) // JSON format
+    .replace(/^version:\s*.+$/m, `version: ${version}`); // YAML format
   await fs.writeFile(path.join(tempPluginDir, 'manifest.mf'), manifest);
 
   // Create README with version notes
@@ -41,7 +42,7 @@ async function createMockRelease(
   // Create tar.gz
   const archiveName = `${pluginName}-${version}.tar.gz`;
   const archivePath = path.join(RELEASES_DIR, archiveName);
-  
+
   await exec(
     `tar -czf "${archivePath}" -C "${path.join(TEMP_DIR, `${pluginName}-${version}`)}" "${pluginName}"`
   );
@@ -49,7 +50,7 @@ async function createMockRelease(
   console.log(`  ✓ Created: ${archiveName}`);
 }
 
-async function main() {
+async function main(): Promise<void> {
   console.log('================================');
   console.log('Local Documentation Test Setup');
   console.log('================================\n');
@@ -105,7 +106,11 @@ async function main() {
   console.log('  npm run test:docs-generate\n');
 }
 
-main().catch(err => {
-  console.error('Error:', err.message);
-  process.exit(1);
-});
+(async (): Promise<void> => {
+  try {
+    await main();
+  } catch (err) {
+    console.error('Error:', (err as Error).message);
+    process.exit(1);
+  }
+})();

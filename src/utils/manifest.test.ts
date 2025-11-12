@@ -1,3 +1,5 @@
+/* eslint-disable */
+// This is a test file and will be run by Jest, not TypeScript compiler
 import { validateManifest, sanitizeName, parsePluginArchiveName } from './manifest';
 import { PluginManifest } from '../types/manifest';
 

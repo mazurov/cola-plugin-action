@@ -42,7 +42,9 @@ export function validateManifest(manifest: PluginManifest): ValidationResult {
   if (!manifest.version) {
     errors.push('Missing required field: version');
   } else if (manifest.version.startsWith('v')) {
-    errors.push(`Invalid version format: ${manifest.version}. Remove 'v' prefix (e.g., use 1.0.0 instead of v1.0.0)`);
+    errors.push(
+      `Invalid version format: ${manifest.version}. Remove 'v' prefix (e.g., use 1.0.0 instead of v1.0.0)`
+    );
   } else if (!semver.valid(manifest.version)) {
     errors.push(`Invalid version format: ${manifest.version}. Must be valid semver (e.g., 1.0.0)`);
   }

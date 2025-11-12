@@ -91,7 +91,7 @@ export function generateCommandsSection(manifest: PluginManifest): string {
       }
 
       // Group is an optional field not in the type definition but may exist in manifests
-      const group = (cmd as any).group;
+      const group = (cmd as { group?: string }).group;
       if (group) {
         detailsHtml.push(`
                         <div class="command-detail-label">Group:</div>

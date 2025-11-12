@@ -17,7 +17,9 @@ export function renderMarkdown(markdown: string): string {
     const html = marked.parse(markdown);
     return typeof html === 'string' ? html : html.toString();
   } catch (error) {
-    logger.error(`Failed to render markdown: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(
+      `Failed to render markdown: ${error instanceof Error ? error.message : String(error)}`
+    );
     // Fallback: return wrapped in <pre> tags
     return `<pre>${escapeHtml(markdown)}</pre>`;
   }
@@ -82,8 +84,8 @@ export function truncateMarkdown(markdown: string, maxLength: number): string {
   const breakPoint = Math.max(lastPeriod, lastNewline);
 
   if (breakPoint > maxLength * 0.8) {
-    return truncated.substring(0, breakPoint + 1) + '...';
+    return `${truncated.substring(0, breakPoint + 1)}...`;
   }
 
-  return truncated + '...';
+  return `${truncated}...`;
 }

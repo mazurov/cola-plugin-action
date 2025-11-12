@@ -3,12 +3,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { logger } from './utils/logger';
 import { findPluginDirectories, readManifest } from './utils/manifest';
-import {
-  createTarGz,
-  generateChecksum,
-  saveChecksumFile,
-  formatBytes,
-} from './utils/archive';
+import { createTarGz, generateChecksum, saveChecksumFile, formatBytes } from './utils/archive';
 import { PackagedPlugin } from './types/manifest';
 
 /**

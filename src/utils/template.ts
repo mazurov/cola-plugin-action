@@ -26,6 +26,7 @@ export function renderTemplate(template: string, variables: TemplateVariables): 
   // Check for unreplaced variables (helpful for debugging)
   const unreplaced = rendered.match(/\{\{([A-Z_]+)\}\}/g);
   if (unreplaced) {
+    // eslint-disable-next-line no-console
     console.warn(`Warning: Unreplaced template variables: ${unreplaced.join(', ')}`);
   }
 
@@ -71,9 +72,10 @@ export function createPluginCardHtml(plugin: {
     ? `<p class="description">${escapeHtml(plugin.description)}</p>`
     : '';
 
-  const tags = plugin.tags && plugin.tags.length > 0
-    ? `<div class="tags">${plugin.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}</div>`
-    : '';
+  const tags =
+    plugin.tags && plugin.tags.length > 0
+      ? `<div class="tags">${plugin.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}</div>`
+      : '';
 
   return `
     <div class="plugin-card">
@@ -84,12 +86,14 @@ export function createPluginCardHtml(plugin: {
     </div>`;
 }
 
-export function generateIndexHtml(plugins: Array<{
-  name: string;
-  version: string;
-  description?: string;
-  tags?: string[];
-}>): string {
+export function generateIndexHtml(
+  plugins: {
+    name: string;
+    version: string;
+    description?: string;
+    tags?: string[];
+  }[]
+): string {
   const pluginCards = plugins.map(plugin => createPluginCardHtml(plugin)).join('\n');
 
   const timestamp = new Date().toISOString();

@@ -8,6 +8,7 @@ import { logger } from './utils/logger';
 import { GitHubClient } from './utils/github-api';
 import { extractArchiveFiles, parsePluginArchiveName, formatBytes } from './utils/archive';
 import { readManifest } from './utils/manifest';
+import type { PluginManifest } from './types/manifest';
 import { renderMarkdown } from './utils/markdown';
 import { renderTemplate, generateIndexHtml } from './utils/template';
 import {
@@ -128,7 +129,7 @@ export async function generateDocs(options: DocsGenerationOptions): Promise<Docs
 
 async function processPluginVersions(
   pluginName: string,
-  assets: Array<{ name: string; browser_download_url: string; size: number }>,
+  assets: { name: string; browser_download_url: string; size: number }[],
   workDir: string
 ): Promise<PluginDocumentation[]> {
   const docs: PluginDocumentation[] = [];
@@ -284,7 +285,7 @@ async function generateVersionPage(
       ? [
           {
             name: doc.manifest.commandName,
-            type: (doc.manifest.commandType as any) || 'executable',
+            type: doc.manifest.commandType || 'executable',
             short: doc.manifest.description,
           },
         ]
@@ -299,8 +300,9 @@ async function generateVersionPage(
   };
 
   // Use shared template variables generator
+  // Type assertion needed because manifest structure differs slightly
   const variables = generateTemplateVariables(
-    manifest as any,
+    manifest as unknown as PluginManifest,
     doc.version,
     doc.readmeHtml,
     versionSelector
@@ -368,7 +370,9 @@ async function generateRootIndex(
   await fs.writeFile(path.join(docsDir, 'index.html'), html);
 }
 
-function generateVersionsMetadata(pluginDocs: Map<string, PluginDocumentation[]>): AllVersionsMetadata {
+function generateVersionsMetadata(
+  pluginDocs: Map<string, PluginDocumentation[]>
+): AllVersionsMetadata {
   const plugins: Record<string, string[]> = {};
 
   for (const [pluginName, docs] of pluginDocs.entries()) {
@@ -394,7 +398,12 @@ async function pushToGitHubPages(
 
   // Configure git
   await exec.exec('git', ['config', '--global', 'user.name', 'github-actions[bot]']);
-  await exec.exec('git', ['config', '--global', 'user.email', 'github-actions[bot]@users.noreply.github.com']);
+  await exec.exec('git', [
+    'config',
+    '--global',
+    'user.email',
+    'github-actions[bot]@users.noreply.github.com',
+  ]);
 
   // Initialize or clone gh-pages
   try {

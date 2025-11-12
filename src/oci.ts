@@ -94,7 +94,9 @@ export async function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult>
         ];
 
         if (manifest._metadata?.description) {
-          annotations.push(`org.opencontainers.image.description=${manifest._metadata.description}`);
+          annotations.push(
+            `org.opencontainers.image.description=${manifest._metadata.description}`
+          );
         }
 
         await orasPush(ociRef, version, tempArchive, annotations);
@@ -153,7 +155,7 @@ async function installOras(): Promise<void> {
   const platform = os.platform();
   const arch = os.arch();
 
-  let osPlatform = platform;
+  const osPlatform = platform;
   let osArch = arch;
 
   if (arch === 'x64') osArch = 'amd64';

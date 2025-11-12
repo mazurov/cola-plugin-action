@@ -80,7 +80,9 @@ async function run(): Promise<void> {
       const templatePath = path.join(actionPath, 'templates', 'plugin-page.html');
 
       if (!githubToken || !githubRepository) {
-        logger.warning('Skipping documentation generation - GitHub token or repository not available');
+        logger.warning(
+          'Skipping documentation generation - GitHub token or repository not available'
+        );
       } else {
         await generateDocumentation({
           repository: githubRepository,

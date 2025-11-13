@@ -105,7 +105,7 @@ jobs:
   # Packaging Tests
   # ===========================================================================
   test-packaging:
-    name: Test Packaging (tar.gz)
+    name: Test Packaging (ZIP)
     runs-on: ubuntu-latest
     needs: build-and-test
     steps:
@@ -117,7 +117,7 @@ jobs:
         uses: ./
         with:
           plugins-directory: 'tests/valid'
-          package-format: 'tar.gz'
+          package-format: 'tar.gz'  # Creates ZIP for artifacts
           generate-docs: 'false'
 
       - name: Verify packages were created
@@ -128,14 +128,14 @@ jobs:
             exit 1
           fi
 
-          package_count=$(ls -1 build/packages/*.tar.gz 2>/dev/null | wc -l)
+          package_count=$(ls -1 build/packages/*.zip 2>/dev/null | wc -l)
           if [ "$package_count" -eq 0 ]; then
-            echo "❌ No tar.gz packages found"
+            echo "❌ No ZIP packages found"
             exit 1
           fi
 
           echo "✅ Found $package_count package(s):"
-          ls -lh build/packages/*.tar.gz
+          ls -lh build/packages/*.zip
 
           echo ""
           echo "Checksums:"
@@ -144,14 +144,14 @@ jobs:
       - name: Verify package contents
         run: |
           echo "📋 Verifying package contents..."
-          for archive in build/packages/*.tar.gz; do
+          for archive in build/packages/*.zip; do
             if [ -f "$archive" ]; then
               echo ""
               echo "Contents of $(basename $archive):"
-              tar -tzf "$archive" | head -20
+              unzip -l "$archive" | head -25
 
               # Verify manifest exists in archive
-              if tar -tzf "$archive" | grep -q "manifest.mf"; then
+              if unzip -l "$archive" | grep -q "manifest.mf"; then
                 echo "✅ manifest.mf found in archive"
               else
                 echo "❌ manifest.mf missing from archive!"
@@ -161,10 +161,11 @@ jobs:
           done
 
       - name: Upload test packages
+        if: ${{ !env.ACT }}  # Skip when running with act locally
         uses: actions/upload-artifact@v4
         with:
           name: test-packages
-          path: build/packages/*.tar.gz
+          path: build/packages/*.zip
           retention-days: 7
 
   # ===========================================================================

@@ -8,7 +8,7 @@
 --bind
 
 # Verbose output for debugging
--v
+# -v
 
 # Detect event from git (push, pull_request, etc)
 --detect-event

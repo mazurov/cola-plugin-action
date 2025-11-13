@@ -9,7 +9,7 @@ docs-preview/
 
 # TypeScript compiled output
 lib/
-dist/
+#dist/
 *.tsbuildinfo
 
 # Temporary files

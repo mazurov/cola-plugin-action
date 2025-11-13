@@ -18,7 +18,7 @@ inputs:
     default: 'false'
 
   package-format:
-    description: 'Package format: tar.gz, oci, or both'
+    description: 'Package format: tar.gz (creates ZIP for artifacts), oci (no artifacts), or both'
     required: false
     default: 'tar.gz'
 

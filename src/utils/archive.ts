@@ -6,14 +6,17 @@ import { logger } from './logger';
 
 /**
  * Archive creation and manipulation utilities
+ * Supports both tar.gz (for OCI) and ZIP (for artifacts)
  */
+
+export type ArchiveFormat = 'tar.gz' | 'zip';
 
 export async function createTarGz(
   sourceDir: string,
   outputPath: string,
   baseName: string
 ): Promise<void> {
-  logger.info(`Creating archive: ${outputPath}`);
+  logger.info(`Creating tar.gz archive: ${outputPath}`);
 
   try {
     await tar.create(
@@ -26,11 +29,50 @@ export async function createTarGz(
     );
 
     const stats = await fs.stat(outputPath);
-    logger.success(`Created archive: ${outputPath} (${formatBytes(stats.size)})`);
+    logger.success(`Created tar.gz archive: ${outputPath} (${formatBytes(stats.size)})`);
   } catch (error) {
     throw new Error(
-      `Failed to create archive: ${error instanceof Error ? error.message : String(error)}`
+      `Failed to create tar.gz archive: ${error instanceof Error ? error.message : String(error)}`
     );
+  }
+}
+
+export async function createZip(
+  sourceDir: string,
+  outputPath: string,
+  baseName: string
+): Promise<void> {
+  logger.info(`Creating ZIP archive: ${outputPath}`);
+
+  try {
+    const { exec } = await import('@actions/exec');
+    const sourceParent = path.dirname(sourceDir);
+    const absOutputPath = path.resolve(outputPath);
+
+    // Create zip using system zip command (available on all GitHub runners)
+    await exec('zip', ['-r', '-q', absOutputPath, baseName], {
+      cwd: sourceParent,
+    });
+
+    const stats = await fs.stat(outputPath);
+    logger.success(`Created ZIP archive: ${outputPath} (${formatBytes(stats.size)})`);
+  } catch (error) {
+    throw new Error(
+      `Failed to create ZIP archive: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
+
+export async function createArchive(
+  sourceDir: string,
+  outputPath: string,
+  baseName: string,
+  format: ArchiveFormat
+): Promise<void> {
+  if (format === 'tar.gz') {
+    await createTarGz(sourceDir, outputPath, baseName);
+  } else {
+    await createZip(sourceDir, outputPath, baseName);
   }
 }
 

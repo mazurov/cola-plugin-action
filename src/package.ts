@@ -3,16 +3,23 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { logger } from './utils/logger';
 import { findPluginDirectories, readManifest } from './utils/manifest';
-import { createTarGz, generateChecksum, saveChecksumFile, formatBytes } from './utils/archive';
+import {
+  createArchive,
+  generateChecksum,
+  saveChecksumFile,
+  formatBytes,
+  ArchiveFormat,
+} from './utils/archive';
 import { PackagedPlugin } from './types/manifest';
 
 /**
- * Package plugins into tar.gz archives
+ * Package plugins into archives (ZIP or tar.gz)
  */
 
 export interface PackageOptions {
   pluginsDirectory: string;
   outputDirectory: string;
+  format?: ArchiveFormat;
 }
 
 export interface PackageResult {
@@ -22,10 +29,11 @@ export interface PackageResult {
 export async function packagePlugins(options: PackageOptions): Promise<PackageResult> {
   logger.header('Packaging Plugins');
 
-  const { pluginsDirectory, outputDirectory } = options;
+  const { pluginsDirectory, outputDirectory, format = 'zip' } = options;
 
   logger.info(`Plugins directory: ${pluginsDirectory}`);
   logger.info(`Output directory: ${outputDirectory}`);
+  logger.info(`Archive format: ${format}`);
 
   // Ensure output directory exists
   await fs.mkdir(outputDirectory, { recursive: true });
@@ -54,12 +62,13 @@ export async function packagePlugins(options: PackageOptions): Promise<PackageRe
       logger.info(`Package: ${manifest.pkgName}`);
       logger.info(`Version: ${manifest.version}`);
 
-      // Create archive name: {pkgName}-{version}.tar.gz
-      const archiveName = `${manifest.pkgName}-${manifest.version}.tar.gz`;
+      // Create archive name: {pkgName}-{version}.{format}
+      const extension = format === 'tar.gz' ? '.tar.gz' : '.zip';
+      const archiveName = `${manifest.pkgName}-${manifest.version}${extension}`;
       const archivePath = path.join(outputDirectory, archiveName);
 
-      // Create tar.gz archive
-      await createTarGz(pluginDir, archivePath, pluginName);
+      // Create archive
+      await createArchive(pluginDir, archivePath, pluginName, format);
 
       // Generate checksum
       const checksum = await generateChecksum(archivePath);

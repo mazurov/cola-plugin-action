@@ -46288,15 +46288,20 @@ async function run() {
         // Step 2: Package plugins
         let packagesCreated = false;
         const outputDirectory = 'build/packages';
-        if (packageFormat === 'tar.gz' || packageFormat === 'both') {
+        // Determine what to create based on package format
+        const needsZip = packageFormat === 'tar.gz' || packageFormat === 'both';
+        const needsOci = (packageFormat === 'oci' || packageFormat === 'both') && ociRegistry;
+        // Create ZIP archives for GitHub Releases/Artifacts (easier to extract on all platforms)
+        if (needsZip) {
             await (0, package_1.packagePlugins)({
                 pluginsDirectory,
                 outputDirectory,
+                format: 'zip',
             });
             packagesCreated = true;
         }
-        // Step 3: Push to OCI registry
-        if ((packageFormat === 'oci' || packageFormat === 'both') && ociRegistry) {
+        // Step 3: Push to OCI registry (creates tar.gz internally)
+        if (needsOci) {
             if (!ociUsername || !ociToken) {
                 throw new Error('OCI registry credentials required (oci-username and oci-token)');
             }
@@ -46611,9 +46616,10 @@ const manifest_1 = __nccwpck_require__(3148);
 const archive_1 = __nccwpck_require__(5143);
 async function packagePlugins(options) {
     logger_1.logger.header('Packaging Plugins');
-    const { pluginsDirectory, outputDirectory } = options;
+    const { pluginsDirectory, outputDirectory, format = 'zip' } = options;
     logger_1.logger.info(`Plugins directory: ${pluginsDirectory}`);
     logger_1.logger.info(`Output directory: ${outputDirectory}`);
+    logger_1.logger.info(`Archive format: ${format}`);
     // Ensure output directory exists
     await fs.mkdir(outputDirectory, { recursive: true });
     // Find all plugin directories
@@ -46632,11 +46638,12 @@ async function packagePlugins(options) {
             const manifest = await (0, manifest_1.readManifest)(pluginDir);
             logger_1.logger.info(`Package: ${manifest.pkgName}`);
             logger_1.logger.info(`Version: ${manifest.version}`);
-            // Create archive name: {pkgName}-{version}.tar.gz
-            const archiveName = `${manifest.pkgName}-${manifest.version}.tar.gz`;
+            // Create archive name: {pkgName}-{version}.{format}
+            const extension = format === 'tar.gz' ? '.tar.gz' : '.zip';
+            const archiveName = `${manifest.pkgName}-${manifest.version}${extension}`;
             const archivePath = path.join(outputDirectory, archiveName);
-            // Create tar.gz archive
-            await (0, archive_1.createTarGz)(pluginDir, archivePath, pluginName);
+            // Create archive
+            await (0, archive_1.createArchive)(pluginDir, archivePath, pluginName, format);
             // Generate checksum
             const checksum = await (0, archive_1.generateChecksum)(archivePath);
             await (0, archive_1.saveChecksumFile)(archivePath, checksum);
@@ -46725,6 +46732,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.createTarGz = createTarGz;
+exports.createZip = createZip;
+exports.createArchive = createArchive;
 exports.extractTarGz = extractTarGz;
 exports.listTarGzContents = listTarGzContents;
 exports.generateChecksum = generateChecksum;
@@ -46738,11 +46747,8 @@ const path = __importStar(__nccwpck_require__(6928));
 const crypto = __importStar(__nccwpck_require__(6982));
 const tar_1 = __importDefault(__nccwpck_require__(1196));
 const logger_1 = __nccwpck_require__(7893);
-/**
- * Archive creation and manipulation utilities
- */
 async function createTarGz(sourceDir, outputPath, baseName) {
-    logger_1.logger.info(`Creating archive: ${outputPath}`);
+    logger_1.logger.info(`Creating tar.gz archive: ${outputPath}`);
     try {
         await tar_1.default.create({
             gzip: true,
@@ -46750,10 +46756,35 @@ async function createTarGz(sourceDir, outputPath, baseName) {
             cwd: path.dirname(sourceDir),
         }, [baseName]);
         const stats = await fs.stat(outputPath);
-        logger_1.logger.success(`Created archive: ${outputPath} (${formatBytes(stats.size)})`);
+        logger_1.logger.success(`Created tar.gz archive: ${outputPath} (${formatBytes(stats.size)})`);
     }
     catch (error) {
-        throw new Error(`Failed to create archive: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(`Failed to create tar.gz archive: ${error instanceof Error ? error.message : String(error)}`);
+    }
+}
+async function createZip(sourceDir, outputPath, baseName) {
+    logger_1.logger.info(`Creating ZIP archive: ${outputPath}`);
+    try {
+        const { exec } = await Promise.resolve().then(() => __importStar(__nccwpck_require__(5236)));
+        const sourceParent = path.dirname(sourceDir);
+        const absOutputPath = path.resolve(outputPath);
+        // Create zip using system zip command (available on all GitHub runners)
+        await exec('zip', ['-r', '-q', absOutputPath, baseName], {
+            cwd: sourceParent,
+        });
+        const stats = await fs.stat(outputPath);
+        logger_1.logger.success(`Created ZIP archive: ${outputPath} (${formatBytes(stats.size)})`);
+    }
+    catch (error) {
+        throw new Error(`Failed to create ZIP archive: ${error instanceof Error ? error.message : String(error)}`);
+    }
+}
+async function createArchive(sourceDir, outputPath, baseName, format) {
+    if (format === 'tar.gz') {
+        await createTarGz(sourceDir, outputPath, baseName);
+    }
+    else {
+        await createZip(sourceDir, outputPath, baseName);
     }
 }
 async function extractTarGz(archivePath, extractTo, files) {

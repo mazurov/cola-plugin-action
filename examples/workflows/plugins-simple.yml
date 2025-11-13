@@ -56,7 +56,7 @@ jobs:
         uses: criteo/cola-plugin-action@v1
         with:
           plugins-directory: 'plugins'
-          package-format: 'tar.gz'
+          package-format: 'tar.gz'  # Creates ZIP for artifacts
           generate-docs: 'true'
           docs-branch: 'gh-pages'
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -66,7 +66,9 @@ jobs:
         with:
           tag_name: v${{ github.run_number }}
           name: Release ${{ github.run_number }}
-          files: build/packages/*.tar.gz
+          files: |
+            build/packages/*.zip
+            build/packages/*.zip.sha256
           fail_on_unmatched_files: false  # Don't fail if some files are missing
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

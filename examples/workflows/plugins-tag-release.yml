@@ -48,12 +48,12 @@ jobs:
           plugins-directory: 'plugins'
           validate-only: 'true'
 
-      - name: Package plugins (tar.gz + OCI)
+      - name: Package plugins (ZIP + OCI)
         id: package
         uses: criteo/cola-plugin-action@v1
         with:
           plugins-directory: 'plugins'
-          package-format: 'both'
+          package-format: 'both'  # Creates ZIP for artifacts, tar.gz for OCI
           oci-registry: 'ghcr.io/${{ github.repository_owner }}'
           oci-username: ${{ github.actor }}
           oci-token: ${{ secrets.GITHUB_TOKEN }}
@@ -84,9 +84,9 @@ jobs:
           EOF
 
           # List all packaged plugins
-          for archive in build/packages/*.tar.gz; do
+          for archive in build/packages/*.zip; do
             if [ -f "$archive" ]; then
-              basename=$(basename "$archive" .tar.gz)
+              basename=$(basename "$archive" .zip)
               sha256=$(sha256sum "$archive" | awk '{print $1}')
               echo "### ${basename}" >> RELEASE_NOTES.md
               echo "" >> RELEASE_NOTES.md
@@ -103,10 +103,10 @@ jobs:
 
           ```bash
           # Download the plugin archive
-          wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/<plugin-name>-<version>.tar.gz
+          wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/<plugin-name>-<version>.zip
 
           # Extract to your plugins directory
-          tar -xzf <plugin-name>-<version>.tar.gz -C ~/.command-launcher/plugins/
+          unzip <plugin-name>-<version>.zip -d ~/.command-launcher/plugins/
 
           # Verify installation
           cola plugin list
@@ -132,8 +132,11 @@ jobs:
           ## 🔍 Verify Package Integrity
 
           ```bash
+          # Download the checksum file
+          wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/<plugin-name>-<version>.zip.sha256
+
           # Verify SHA256 checksum
-          sha256sum -c <plugin-name>-<version>.tar.gz.sha256
+          sha256sum -c <plugin-name>-<version>.zip.sha256
           ```
 
           ## 📚 Documentation
@@ -162,8 +165,8 @@ jobs:
           name: Release ${{ steps.version.outputs.tag }}
           body_path: RELEASE_NOTES.md
           files: |
-            build/packages/*.tar.gz
-            build/packages/*.tar.gz.sha256
+            build/packages/*.zip
+            build/packages/*.zip.sha256
           draft: false
           prerelease: false
           generate_release_notes: true

@@ -68,23 +68,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Package plugins (tar.gz)
+      - name: Package plugins (ZIP)
         uses: criteo/cola-plugin-action@v1
         with:
           plugins-directory: 'plugins'
-          package-format: 'tar.gz'
+          package-format: 'tar.gz'  # Creates ZIP for artifacts
           generate-docs: 'false'
 
       - name: List generated packages
         run: |
           echo "📦 Generated packages:"
-          ls -lh build/packages/*.tar.gz
+          ls -lh build/packages/*.zip
+          echo ""
+          echo "📝 Checksums:"
+          ls -lh build/packages/*.zip.sha256
 
       - name: Upload test packages as artifacts
         uses: actions/upload-artifact@v4
         with:
           name: test-plugin-packages
-          path: build/packages/*.tar.gz
+          path: |
+            build/packages/*.zip
+            build/packages/*.zip.sha256
           retention-days: 7
 
   # ============================================================================
@@ -177,7 +182,7 @@ jobs:
         uses: criteo/cola-plugin-action@v1
         with:
           plugins-directory: 'plugins'
-          package-format: 'both'  # Create both tar.gz and OCI packages
+          package-format: 'both'  # Create ZIP for artifacts, tar.gz for OCI
           oci-registry: 'ghcr.io/${{ github.repository_owner }}'
           oci-username: ${{ github.actor }}
           oci-token: ${{ secrets.GITHUB_TOKEN }}
@@ -214,13 +219,13 @@ jobs:
 
           ## 🚀 Installation
 
-          ### Via tar.gz (GitHub Releases)
+          ### Via ZIP (GitHub Releases)
 
           Download the plugin archive from the assets below and extract it to your Command Launcher plugins directory:
 
           ```bash
           # Download and extract
-          tar -xzf <plugin-name>-<version>.tar.gz -C ~/.command-launcher/plugins/
+          unzip <plugin-name>-<version>.zip -d ~/.command-launcher/plugins/
           ```
 
           ### Via OCI Registry (Recommended)
@@ -257,8 +262,8 @@ jobs:
           name: Plugin Release ${{ github.run_number }}
           body_path: release-notes.md
           files: |
-            build/packages/*.tar.gz
-            build/packages/*.tar.gz.sha256
+            build/packages/*.zip
+            build/packages/*.zip.sha256
           draft: false
           prerelease: false
           fail_on_unmatched_files: false  # Don't fail if some files are missing

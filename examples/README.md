@@ -35,9 +35,9 @@ If you have a repository with Command Launcher plugins and want to set up automa
 
 | Workflow | Best For | Complexity | Features |
 |----------|----------|------------|----------|
-| **plugins-simple.yml** | Getting started | ⭐ Easy | Validation, tar.gz packages, docs |
-| **plugins-ci.yml** | Production use | ⭐⭐⭐ Advanced | Full CI/CD, OCI registry, PR previews |
-| **plugins-tag-release.yml** | Version tags | ⭐⭐ Medium | Semver releases, changelogs |
+| **plugins-simple.yml** | Getting started | ⭐ Easy | Validation, ZIP packages, docs |
+| **plugins-ci.yml** | Production use | ⭐⭐⭐ Advanced | Full CI/CD, ZIP+OCI, PR previews |
+| **plugins-tag-release.yml** | Version tags | ⭐⭐ Medium | Semver releases, ZIP+OCI, changelogs |
 | **plugins-scheduled.yml** | Maintenance | ⭐ Easy | Weekly checks, auto-docs |
 
 ## 📖 Detailed Documentation

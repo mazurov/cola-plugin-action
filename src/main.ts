@@ -48,16 +48,22 @@ async function run(): Promise<void> {
     let packagesCreated = false;
     const outputDirectory = 'build/packages';
 
-    if (packageFormat === 'tar.gz' || packageFormat === 'both') {
+    // Determine what to create based on package format
+    const needsZip = packageFormat === 'tar.gz' || packageFormat === 'both';
+    const needsOci = (packageFormat === 'oci' || packageFormat === 'both') && ociRegistry;
+
+    // Create ZIP archives for GitHub Releases/Artifacts (easier to extract on all platforms)
+    if (needsZip) {
       await packagePlugins({
         pluginsDirectory,
         outputDirectory,
+        format: 'zip',
       });
       packagesCreated = true;
     }
 
-    // Step 3: Push to OCI registry
-    if ((packageFormat === 'oci' || packageFormat === 'both') && ociRegistry) {
+    // Step 3: Push to OCI registry (creates tar.gz internally)
+    if (needsOci) {
       if (!ociUsername || !ociToken) {
         throw new Error('OCI registry credentials required (oci-username and oci-token)');
       }

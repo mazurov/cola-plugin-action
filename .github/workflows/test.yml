@@ -160,6 +160,27 @@ jobs:
             fi
           done
 
+      - name: Verify SHA256 checksums
+        run: |
+          echo "🔐 Verifying SHA256 checksums..."
+          cd build/packages
+
+          for checksum_file in *.sha256; do
+            if [ -f "$checksum_file" ]; then
+              echo ""
+              echo "Verifying: $checksum_file"
+              if sha256sum -c "$checksum_file"; then
+                echo "✅ Checksum verified for $checksum_file"
+              else
+                echo "❌ Checksum verification failed for $checksum_file"
+                exit 1
+              fi
+            fi
+          done
+
+          echo ""
+          echo "✅ All checksums verified successfully"
+
       - name: Upload test packages
         if: ${{ !env.ACT }}  # Skip when running with act locally
         uses: actions/upload-artifact@v4

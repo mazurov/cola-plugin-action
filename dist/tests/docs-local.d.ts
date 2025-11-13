@@ -4,4 +4,3 @@
  * Creates test plugin archives for documentation generation testing
  */
 export {};
-//# sourceMappingURL=docs-local.d.ts.map

@@ -24,4 +24,3 @@ export declare class GitHubClient {
     downloadAsset(url: string, outputPath: string): Promise<void>;
     getPluginAssets(releases: GitHubRelease[]): Map<string, GitHubAsset[]>;
 }
-//# sourceMappingURL=github-api.d.ts.map

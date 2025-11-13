@@ -10,4 +10,3 @@ export declare function parsePluginArchiveName(filename: string): {
     name: string;
     version: string;
 } | null;
-//# sourceMappingURL=manifest.d.ts.map

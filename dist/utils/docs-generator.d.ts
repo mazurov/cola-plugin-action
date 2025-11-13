@@ -21,4 +21,3 @@ export interface TemplateVariables {
 export declare function generateTemplateVariables(manifest: PluginManifest, version: string, readmeHtml: string, versionSelector: string): TemplateVariables;
 export declare function generateVersionIndexPage(outputPath: string, pluginName: string, versions: string[], templatePath?: string): Promise<void>;
 export declare function generateRedirectPage(outputPath: string, pluginName: string, latestVersion: string): Promise<void>;
-//# sourceMappingURL=docs-generator.d.ts.map

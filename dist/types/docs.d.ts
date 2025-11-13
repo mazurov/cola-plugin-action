@@ -50,4 +50,3 @@ export interface DocsGenerationResult {
 export interface TemplateVariables {
     [key: string]: string | number | boolean | undefined;
 }
-//# sourceMappingURL=docs.d.ts.map

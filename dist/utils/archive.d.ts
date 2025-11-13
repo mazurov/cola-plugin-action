@@ -17,4 +17,3 @@ export declare function parsePluginArchiveName(filename: string): {
     version: string;
 } | null;
 export declare function extractArchiveFiles(archivePath: string, extractTo: string, files: string[]): Promise<void>;
-//# sourceMappingURL=archive.d.ts.map

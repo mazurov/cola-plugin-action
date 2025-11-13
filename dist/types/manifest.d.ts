@@ -47,4 +47,3 @@ export interface PackagedPlugin {
     checksum: string;
     size: number;
 }
-//# sourceMappingURL=manifest.d.ts.map

@@ -4,4 +4,3 @@
  * Uses shared utilities to generate documentation without GitHub API
  */
 export {};
-//# sourceMappingURL=docs-generate.d.ts.map

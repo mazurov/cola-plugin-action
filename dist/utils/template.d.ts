@@ -19,4 +19,3 @@ export declare function generateIndexHtml(plugins: {
     description?: string;
     tags?: string[];
 }[]): string;
-//# sourceMappingURL=template.d.ts.map

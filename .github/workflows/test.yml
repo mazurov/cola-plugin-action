@@ -165,14 +165,31 @@ jobs:
           echo "🔐 Verifying SHA256 checksums..."
           cd build/packages
 
-          for checksum_file in *.sha256; do
-            if [ -f "$checksum_file" ]; then
+          for zip_file in *.zip; do
+            if [ -f "$zip_file" ]; then
+              checksum_file="${zip_file}.sha256"
+
+              if [ ! -f "$checksum_file" ]; then
+                echo "❌ Checksum file missing: $checksum_file"
+                exit 1
+              fi
+
               echo ""
-              echo "Verifying: $checksum_file"
-              if sha256sum -c "$checksum_file"; then
-                echo "✅ Checksum verified for $checksum_file"
+              echo "Verifying: $zip_file"
+
+              # Read expected checksum from file
+              expected_checksum=$(cat "$checksum_file" | awk '{print $1}')
+              echo "  Expected (from .sha256): $expected_checksum"
+
+              # Calculate actual checksum
+              actual_checksum=$(sha256sum "$zip_file" | awk '{print $1}')
+              echo "  Actual   (calculated):   $actual_checksum"
+
+              # Compare checksums
+              if [ "$expected_checksum" = "$actual_checksum" ]; then
+                echo "  ✅ Checksums match!"
               else
-                echo "❌ Checksum verification failed for $checksum_file"
+                echo "  ❌ Checksums DO NOT match!"
                 exit 1
               fi
             fi

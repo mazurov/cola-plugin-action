@@ -10,7 +10,7 @@ inputs:
   plugins-directory:
     description: 'Root directory containing plugin subdirectories'
     required: true
-    default: 'plugins'
+    default: 'packages'
 
   validate-only:
     description: 'Only validate manifests without packaging'

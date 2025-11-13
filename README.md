@@ -7,8 +7,8 @@ A comprehensive GitHub Action for Command Launcher plugin lifecycle management. 
 ## Features
 
 - ✅ **Manifest Validation** - Validates plugin manifests against Command Launcher specification
-- 📦 **Multi-format Packaging** - Creates tar.gz archives and/or pushes to OCI registries
-- 📚 **Auto-documentation** - Generates beautiful GitHub Pages documentation
+- 📦 **Multi-format Packaging** - Creates ZIP archives for releases and/or pushes to OCI registries
+- 📚 **Auto-documentation** - Generates beautiful GitHub Pages documentation from release assets
 - 🔧 **Local Testing** - Full support for local testing without GitHub infrastructure
 - 🚀 **Easy Integration** - Simple YAML configuration for any plugin repository
 
@@ -65,14 +65,14 @@ jobs:
       - uses: criteo/cola-plugin-action@v1
         with:
           plugins-directory: 'plugins'
-          package-format: 'tar.gz'
-          generate-docs: 'true'
+          package-format: 'tar.gz'  # Creates ZIP for artifacts
+          generate-docs: 'false'    # Use dedicated docs-from-releases.yml workflow
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: plugins
-          path: build/packages/*.tar.gz
+          path: build/packages/*.zip
 ```
 
 ### OCI Registry Push
@@ -93,13 +93,14 @@ jobs:
 |-------|----------|---------|-------------|
 | `plugins-directory` | Yes | `plugins` | Root directory containing plugin subdirectories |
 | `validate-only` | No | `false` | Only validate manifests without packaging |
-| `package-format` | No | `tar.gz` | Package format: `tar.gz`, `oci`, or `both` |
+| `package-format` | No | `tar.gz` | Package format: `tar.gz` (creates ZIP), `oci`, or `both` |
 | `oci-registry` | No | - | OCI registry URL (e.g., `ghcr.io/username`) |
 | `oci-username` | No | - | OCI registry username |
 | `oci-token` | No | - | OCI registry token/password |
-| `generate-docs` | No | `true` | Generate documentation pages |
+| `generate-docs` | No | `false` | Generate documentation from GitHub Release assets |
 | `docs-branch` | No | `gh-pages` | Branch to push documentation |
-| `github-token` | No | `${{ github.token }}` | GitHub token for pushing to gh-pages |
+| `docs-keep-versions` | No | `0` | Number of versions to keep per plugin (0 = keep all) |
+| `github-token` | No | `${{ github.token }}` | GitHub token for pushing to gh-pages and accessing releases |
 
 ## Outputs
 
@@ -207,10 +208,10 @@ brew install yq git pandoc bc
 # Quick validation test
 make test-validate
 
-# Test packaging
+# Test packaging (creates ZIP files)
 make test-package
 
-# Test package verification
+# Test package verification (ZIP files)
 make test-verify
 
 # Test documentation generation
@@ -291,8 +292,8 @@ bash scripts/validate-manifest.sh
 # Test packaging
 bash scripts/package-plugin.sh
 
-# Verify package
-bash scripts/verify-package.sh build/packages/valid-test-1.0.0.tar.gz
+# Verify package (ZIP file)
+bash scripts/verify-package.sh build/packages/valid-test-1.0.0.zip
 
 # Generate and view versioned documentation
 bash scripts/test-docs-from-releases.sh
@@ -306,9 +307,9 @@ All build artifacts are organized in the `build/` directory:
 ```
 build/
 ├── packages/                      # Packaged plugins
-│   ├── plugin-1.0.0.tar.gz
+│   ├── plugin-1.0.0.zip
 │   ├── plugin-1.0.0.json
-│   └── plugin-1.0.0.tar.gz.sha256
+│   └── plugin-1.0.0.zip.sha256
 ├── docs-from-releases/            # Generated versioned documentation
 │   ├── index.html                # Main landing page
 │   ├── versions.json             # Version metadata
@@ -450,35 +451,50 @@ jobs:
           oci-registry: 'ghcr.io/${{ github.repository_owner }}'
           oci-username: ${{ github.actor }}
           oci-token: ${{ secrets.GITHUB_TOKEN }}
+          generate-docs: 'false'  # Use dedicated docs-from-releases.yml workflow
 
       - uses: softprops/action-gh-release@v1
         with:
-          files: build/packages/*.tar.gz
+          files: |
+            build/packages/*.zip
+            build/packages/*.zip.sha256
 ```
 
-### Documentation Only
+### Documentation from Releases
 
 ```yaml
-name: Update Docs
+name: Update Documentation from Releases
 
 on:
-  push:
-    branches: [main]
+  # Run after each release is published
+  release:
+    types: [published]
+  # Or run weekly to pick up any changes
+  schedule:
+    - cron: '0 0 * * 0'
+  # Allow manual trigger
+  workflow_dispatch:
 
 permissions:
   contents: write
+  pages: write
 
 jobs:
-  docs:
+  regenerate-docs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: criteo/cola-plugin-action@v1
+
+      - name: Install pandoc (optional, for better markdown rendering)
+        run: sudo apt-get update && sudo apt-get install -y pandoc
+
+      - name: Generate documentation from releases
+        uses: criteo/cola-plugin-action@v1
         with:
-          plugins-directory: 'plugins'
-          validate-only: 'false'
-          package-format: 'tar.gz'
           generate-docs: 'true'
+          docs-branch: 'gh-pages'
+          docs-keep-versions: '0'  # Keep all versions
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ## Troubleshooting

@@ -71,7 +71,7 @@ jobs:
           echo "### How it works" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "1. Fetches all releases from GitHub" >> $GITHUB_STEP_SUMMARY
-          echo "2. Downloads all `.tar.gz` plugin archives" >> $GITHUB_STEP_SUMMARY
+          echo "2. Downloads all \`.zip\` plugin archives from releases" >> $GITHUB_STEP_SUMMARY
           echo "3. Extracts manifest and README from each archive" >> $GITHUB_STEP_SUMMARY
           echo "4. Generates versioned documentation pages" >> $GITHUB_STEP_SUMMARY
           echo "5. Pushes to gh-pages branch" >> $GITHUB_STEP_SUMMARY

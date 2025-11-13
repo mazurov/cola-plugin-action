@@ -37,7 +37,7 @@ jobs:
         uses: criteo/cola-plugin-action@v1
         continue-on-error: true
         with:
-          plugins-directory: 'plugins'
+          plugins-directory: 'packages'
           validate-only: 'true'
 
       - name: Create issue if validation fails
@@ -79,7 +79,7 @@ jobs:
       - name: Regenerate plugin documentation
         uses: criteo/cola-plugin-action@v1
         with:
-          plugins-directory: 'plugins'
+          plugins-directory: 'packages'
           validate-only: 'false'
           generate-docs: 'true'
           docs-branch: 'gh-pages'

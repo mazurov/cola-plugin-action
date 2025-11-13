@@ -8,7 +8,7 @@
     "format": "prettier --write '**/*.ts'",
     "format-check": "prettier --check '**/*.ts'",
     "lint": "eslint 'src/**/*.ts' --ignore-pattern '**/*.test.ts'",
-    "package": "ncc build src/main.ts -o dist --source-map --license licenses.txt",
+    "package": "ncc build src/main.ts -o dist --license licenses.txt",
     "test": "jest",
     "test:docs-setup": "tsx src/tests/docs-local.ts",
     "test:docs-generate": "tsx src/tests/docs-generate.ts",

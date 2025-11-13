@@ -1,4 +1,4 @@
-require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
+/******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
 /***/ 4914:
@@ -63855,4 +63855,3 @@ function fixResponseChunkedTransferBadEnding(request, errorCallback) {
 /******/ 	
 /******/ })()
 ;
-//# sourceMappingURL=index.js.map

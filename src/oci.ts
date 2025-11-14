@@ -183,7 +183,10 @@ async function installOras(): Promise<void> {
 async function orasLogin(registry: string, username: string, token: string): Promise<void> {
   logger.info('Authenticating to OCI registry...');
 
-  await exec.exec('oras', ['login', registry, '-u', username, '--password-stdin'], {
+  // Extract hostname from registry URL (e.g., "ghcr.io/username" -> "ghcr.io")
+  const registryHostname = registry.split('/')[0];
+
+  await exec.exec('oras', ['login', registryHostname, '-u', username, '--password-stdin'], {
     input: Buffer.from(token),
     silent: true,
   });
@@ -192,7 +195,9 @@ async function orasLogin(registry: string, username: string, token: string): Pro
 }
 
 async function orasLogout(registry: string): Promise<void> {
-  await exec.exec('oras', ['logout', registry], { silent: true });
+  // Extract hostname from registry URL (e.g., "ghcr.io/username" -> "ghcr.io")
+  const registryHostname = registry.split('/')[0];
+  await exec.exec('oras', ['logout', registryHostname], { silent: true });
 }
 
 async function checkOCITagExists(ociRef: string, tag: string): Promise<boolean> {

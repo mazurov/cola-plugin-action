@@ -205,12 +205,8 @@ async function orasLogout(registry: string): Promise<void> {
 
 async function checkOCITagExists(ociRef: string, tag: string): Promise<boolean> {
   try {
-    const result = await exec.exec('oras', ['manifest', 'fetch', `${ociRef}:${tag}`], {
-      silent: true,
-      ignoreReturnCode: true,
-    });
-    // Return true only if the command succeeded (exit code 0)
-    return result === 0;
+    await exec.exec('oras', ['manifest', 'fetch', `${ociRef}:${tag}`]);
+    return true;
   } catch {
     return false;
   }

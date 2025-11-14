@@ -3,7 +3,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 import { logger } from './utils/logger';
-import { findPluginDirectories, readManifest, sanitizeName } from './utils/manifest';
+import { findPackageDirectories, readManifest, sanitizeName } from './utils/manifest';
 import { createTarGz } from './utils/archive';
 
 /**
@@ -11,7 +11,7 @@ import { createTarGz } from './utils/archive';
  */
 
 export interface OCIPushOptions {
-  pluginsDirectory: string;
+  packagesDirectory: string;
   registry: string;
   username: string;
   token: string;
@@ -23,9 +23,9 @@ export interface OCIPushResult {
 }
 
 export async function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult> {
-  logger.header('Pushing Plugins to OCI Registry');
+  logger.header('Pushing Packages to OCI Registry');
 
-  const { pluginsDirectory, registry, username, token } = options;
+  const { packagesDirectory, registry, username, token } = options;
 
   logger.info(`Registry: ${registry}`);
   logger.info(`Username: ${username}`);
@@ -36,27 +36,27 @@ export async function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult>
   // Login to OCI registry
   await orasLogin(registry, username, token);
 
-  // Find all plugin directories
-  const pluginDirs = await findPluginDirectories(pluginsDirectory);
+  // Find all package directories
+  const packageDirs = await findPackageDirectories(packagesDirectory);
 
-  if (pluginDirs.length === 0) {
-    throw new Error(`No plugins found in ${pluginsDirectory}`);
+  if (packageDirs.length === 0) {
+    throw new Error(`No packages found in ${packagesDirectory}`);
   }
 
-  logger.info(`Found ${pluginDirs.length} plugin(s) to push`);
+  logger.info(`Found ${packageDirs.length} package(s) to push`);
 
   let pushedCount = 0;
   let skippedCount = 0;
 
-  // Push each plugin
-  for (const pluginDir of pluginDirs) {
-    const pluginName = path.basename(pluginDir);
+  // Push each package
+  for (const packageDir of packageDirs) {
+    const packageName = path.basename(packageDir);
 
-    logger.startGroup(`Processing: ${pluginName}`);
+    logger.startGroup(`Processing: ${packageName}`);
 
     try {
       // Read manifest
-      const manifest = await readManifest(pluginDir);
+      const manifest = await readManifest(packageDir);
 
       const commandName = manifest.cmds[0]?.name || manifest.pkgName;
       const safeName = sanitizeName(commandName);
@@ -82,10 +82,10 @@ export async function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult>
 
       // Create temporary archive
       const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'oci-push-'));
-      const tempArchive = path.join(tempDir, 'plugin.tar.gz');
+      const tempArchive = path.join(tempDir, 'package.tar.gz');
 
       try {
-        await createTarGz(pluginDir, tempArchive, pluginName);
+        await createTarGz(packageDir, tempArchive, packageName);
 
         // Push to OCI registry
         const annotations = [
@@ -114,7 +114,7 @@ export async function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult>
       }
     } catch (error) {
       logger.error(
-        `Failed to push ${pluginName}: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to push ${packageName}: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     } finally {

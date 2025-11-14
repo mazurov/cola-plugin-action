@@ -1,10 +1,8 @@
 import * as core from '@actions/core';
-import * as path from 'path';
 import { logger } from './utils/logger';
-import { validatePlugins } from './validate';
-import { packagePlugins } from './package';
+import { validatePackages } from './validate';
+import { createPackages } from './package';
 import { pushToOCI } from './oci';
-import { generateDocs as generateDocumentation } from './docs';
 
 /**
  * Main entry point for the Cola Plugin Action
@@ -13,28 +11,26 @@ import { generateDocs as generateDocumentation } from './docs';
 async function run(): Promise<void> {
   try {
     // Get inputs
-    const pluginsDirectory = core.getInput('plugins-directory', { required: true });
+    const packagesDirectory = core.getInput('packages-directory', { required: true });
     const validateOnly = core.getInput('validate-only') === 'true';
-    const packageFormat = core.getInput('package-format') || 'tar.gz';
+    const packageFormat = core.getInput('package-format') || 'zip';
     const ociRegistry = core.getInput('oci-registry');
     const ociUsername = core.getInput('oci-username');
     const ociToken = core.getInput('oci-token');
-    const generateDocs = core.getInput('generate-docs') === 'true';
 
     logger.header('Cola Plugin Action');
-    logger.info(`Plugins Directory: ${pluginsDirectory}`);
+    logger.info(`Packages Directory: ${packagesDirectory}`);
     logger.info(`Validate Only: ${validateOnly}`);
     logger.info(`Package Format: ${packageFormat}`);
-    logger.info(`Generate Docs: ${generateDocs}`);
 
     // Step 1: Validate manifests
-    const validateResult = await validatePlugins({
-      pluginsDirectory,
+    const validateResult = await validatePackages({
+      packagesDirectory,
     });
 
-    if (validateResult.invalidPlugins.length > 0) {
+    if (validateResult.invalidPackages.length > 0) {
       throw new Error(
-        `Validation failed for ${validateResult.invalidPlugins.length} plugin(s): ${validateResult.invalidPlugins.join(', ')}`
+        `Validation failed for ${validateResult.invalidPackages.length} package(s): ${validateResult.invalidPackages.join(', ')}`
       );
     }
 
@@ -49,13 +45,14 @@ async function run(): Promise<void> {
     const outputDirectory = 'build/packages';
 
     // Determine what to create based on package format
-    const needsZip = packageFormat === 'tar.gz' || packageFormat === 'both';
-    const needsOci = (packageFormat === 'oci' || packageFormat === 'both') && ociRegistry;
+    // Note: tar.gz is created automatically when pushing to OCI registry
+    const needsZipPackages = packageFormat === 'zip' || packageFormat === 'both';
+    const needsOciPush = (packageFormat === 'oci' || packageFormat === 'both') && ociRegistry;
 
-    // Create ZIP archives for GitHub Releases/Artifacts (easier to extract on all platforms)
-    if (needsZip) {
-      await packagePlugins({
-        pluginsDirectory,
+    // Create ZIP archives for GitHub Releases/Artifacts (cross-platform compatibility)
+    if (needsZipPackages) {
+      await createPackages({
+        packagesDirectory,
         outputDirectory,
         format: 'zip',
       });
@@ -63,41 +60,17 @@ async function run(): Promise<void> {
     }
 
     // Step 3: Push to OCI registry (creates tar.gz internally)
-    if (needsOci) {
+    if (needsOciPush) {
       if (!ociUsername || !ociToken) {
         throw new Error('OCI registry credentials required (oci-username and oci-token)');
       }
 
       await pushToOCI({
-        pluginsDirectory,
+        packagesDirectory,
         registry: ociRegistry,
         username: ociUsername,
         token: ociToken,
       });
-    }
-
-    // Step 4: Generate documentation
-    if (generateDocs) {
-      const githubToken = core.getInput('github-token') || process.env.GITHUB_TOKEN;
-      const githubRepository = process.env.GITHUB_REPOSITORY;
-      const docsBranch = core.getInput('docs-branch') || 'gh-pages';
-      const docsKeepVersions = parseInt(core.getInput('docs-keep-versions') || '0', 10);
-      const actionPath = process.env.GITHUB_ACTION_PATH || process.cwd();
-      const templatePath = path.join(actionPath, 'templates', 'plugin-page.html');
-
-      if (!githubToken || !githubRepository) {
-        logger.warning(
-          'Skipping documentation generation - GitHub token or repository not available'
-        );
-      } else {
-        await generateDocumentation({
-          repository: githubRepository,
-          githubToken,
-          docsBranch,
-          keepVersions: docsKeepVersions,
-          templatePath,
-        });
-      }
     }
 
     // Final summary
@@ -108,12 +81,8 @@ async function run(): Promise<void> {
       logger.info(`📦 Packages created in: ${outputDirectory}`);
     }
 
-    if (packageFormat === 'oci' || packageFormat === 'both') {
+    if (needsOciPush) {
       logger.info(`🚀 Plugins pushed to OCI registry: ${ociRegistry}`);
-    }
-
-    if (generateDocs) {
-      logger.info('📚 Documentation published to GitHub Pages');
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

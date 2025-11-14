@@ -7,7 +7,7 @@ branding:
   color: 'blue'
 
 inputs:
-  plugins-directory:
+  packages-directory:
     description: 'Root directory containing plugin subdirectories'
     required: true
     default: 'packages'
@@ -18,9 +18,9 @@ inputs:
     default: 'false'
 
   package-format:
-    description: 'Package format: tar.gz (creates ZIP for artifacts), oci (no artifacts), or both'
+    description: 'Package format: zip (creates ZIP archives), oci (pushes to OCI registry), or both'
     required: false
-    default: 'tar.gz'
+    default: 'zip'
 
   oci-registry:
     description: 'OCI registry URL (e.g., ghcr.io/username)'
@@ -37,44 +37,21 @@ inputs:
     required: false
     default: ''
 
-  generate-docs:
-    description: 'Generate documentation pages from GitHub Release assets'
-    required: false
-    default: 'true'
-
-  docs-branch:
-    description: 'Branch to push documentation'
-    required: false
-    default: 'gh-pages'
-
-  docs-keep-versions:
-    description: 'Number of versions to keep per plugin (0 = keep all versions)'
-    required: false
-    default: '0'
-
-  github-token:
-    description: 'GitHub token for pushing to gh-pages and accessing releases'
-    required: false
-    default: ${{ github.token }}
-
 outputs:
-  validated-plugins:
-    description: 'JSON array of validated plugin directories'
+  validated-packages:
+    description: 'JSON array of validated package directories'
 
   valid-count:
-    description: 'Number of valid plugins'
+    description: 'Number of valid packages'
 
   invalid-count:
-    description: 'Number of invalid plugins'
+    description: 'Number of invalid packages'
 
   packaged-artifacts:
     description: 'JSON array of created artifact paths with metadata'
 
   package-count:
     description: 'Number of packages created'
-
-  docs-url:
-    description: 'URL to generated documentation'
 
 runs:
   using: 'node20'

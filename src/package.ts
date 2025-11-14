@@ -2,7 +2,7 @@ import * as core from '@actions/core';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { logger } from './utils/logger';
-import { findPluginDirectories, readManifest } from './utils/manifest';
+import { findPackageDirectories, readManifest } from './utils/manifest';
 import {
   createArchive,
   generateChecksum,
@@ -10,54 +10,54 @@ import {
   formatBytes,
   ArchiveFormat,
 } from './utils/archive';
-import { PackagedPlugin } from './types/manifest';
+import { PackagedPackage } from './types/manifest';
 
 /**
- * Package plugins into archives (ZIP or tar.gz)
+ * Create packages archives (ZIP or tar.gz)
  */
 
 export interface PackageOptions {
-  pluginsDirectory: string;
+  packagesDirectory: string;
   outputDirectory: string;
   format?: ArchiveFormat;
 }
 
 export interface PackageResult {
-  packages: PackagedPlugin[];
+  packages: PackagedPackage[];
 }
 
-export async function packagePlugins(options: PackageOptions): Promise<PackageResult> {
-  logger.header('Packaging Plugins');
+export async function createPackages(options: PackageOptions): Promise<PackageResult> {
+  logger.header('Creating Packages');
 
-  const { pluginsDirectory, outputDirectory, format = 'zip' } = options;
+  const { packagesDirectory, outputDirectory, format = 'zip' } = options;
 
-  logger.info(`Plugins directory: ${pluginsDirectory}`);
+  logger.info(`Packages directory: ${packagesDirectory}`);
   logger.info(`Output directory: ${outputDirectory}`);
   logger.info(`Archive format: ${format}`);
 
   // Ensure output directory exists
   await fs.mkdir(outputDirectory, { recursive: true });
 
-  // Find all plugin directories
-  const pluginDirs = await findPluginDirectories(pluginsDirectory);
+  // Find all package directories
+  const packageDirs = await findPackageDirectories(packagesDirectory);
 
-  if (pluginDirs.length === 0) {
-    throw new Error(`No plugins found in ${pluginsDirectory}`);
+  if (packageDirs.length === 0) {
+    throw new Error(`No packages found in ${packagesDirectory}`);
   }
 
-  logger.info(`Found ${pluginDirs.length} plugin(s) to package`);
+  logger.info(`Found ${packageDirs.length} package(s) to create`);
 
-  const packages: PackagedPlugin[] = [];
+  const packages: PackagedPackage[] = [];
 
-  // Package each plugin
-  for (const pluginDir of pluginDirs) {
-    const pluginName = path.basename(pluginDir);
+  // Create each package
+  for (const packageDir of packageDirs) {
+    const packageName = path.basename(packageDir);
 
-    logger.startGroup(`Packaging: ${pluginName}`);
+    logger.startGroup(`Creating package: ${packageName}`);
 
     try {
       // Read manifest to get version
-      const manifest = await readManifest(pluginDir);
+      const manifest = await readManifest(packageDir);
 
       logger.info(`Package: ${manifest.pkgName}`);
       logger.info(`Version: ${manifest.version}`);
@@ -68,7 +68,7 @@ export async function packagePlugins(options: PackageOptions): Promise<PackageRe
       const archivePath = path.join(outputDirectory, archiveName);
 
       // Create archive
-      await createArchive(pluginDir, archivePath, pluginName, format);
+      await createArchive(packageDir, archivePath, packageName, format);
 
       // Generate checksum
       const checksum = await generateChecksum(archivePath);
@@ -90,7 +90,7 @@ export async function packagePlugins(options: PackageOptions): Promise<PackageRe
       });
     } catch (error) {
       logger.error(
-        `Failed to package ${pluginName}: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to create package ${packageName}: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     } finally {
@@ -99,7 +99,7 @@ export async function packagePlugins(options: PackageOptions): Promise<PackageRe
   }
 
   // Summary
-  logger.header('Packaging Summary');
+  logger.header('Package Creation Summary');
   logger.info(`Total packages created: ${packages.length}`);
 
   const totalSize = packages.reduce((sum, pkg) => sum + pkg.size, 0);

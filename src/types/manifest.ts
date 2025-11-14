@@ -1,16 +1,16 @@
 /**
- * Command Launcher Plugin Manifest Types
+ * Command Launcher Package Manifest Types
  * Based on: https://criteo.github.io/command-launcher/docs/overview/manifest/
  */
 
-export interface PluginCommand {
+export interface PackageCommand {
   name: string;
   type: 'executable' | 'alias' | 'group';
   short?: string;
   long?: string;
   executable?: string;
   args?: string[];
-  subcommands?: PluginCommand[];
+  subcommands?: PackageCommand[];
   env?: Record<string, string>;
   flags?: CommandFlag[];
 }
@@ -24,7 +24,7 @@ export interface CommandFlag {
   default?: string | boolean | number;
 }
 
-export interface PluginMetadata {
+export interface PackageMetadata {
   author?: string;
   license?: string;
   homepage?: string;
@@ -33,11 +33,11 @@ export interface PluginMetadata {
   description?: string;
 }
 
-export interface PluginManifest {
+export interface PackageManifest {
   pkgName: string;
   version: string;
-  cmds: PluginCommand[];
-  _metadata?: PluginMetadata;
+  cmds: PackageCommand[];
+  _metadata?: PackageMetadata;
 }
 
 export interface ValidationResult {
@@ -46,7 +46,7 @@ export interface ValidationResult {
   warnings: string[];
 }
 
-export interface PackagedPlugin {
+export interface PackagedPackage {
   name: string;
   version: string;
   archivePath: string;

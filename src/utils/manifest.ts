@@ -2,21 +2,21 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as YAML from 'yaml';
 import semver from 'semver';
-import { PluginManifest, ValidationResult } from '../types/manifest';
+import { PackageManifest, ValidationResult } from '../types/manifest';
 import { logger } from './logger';
 
 /**
  * Manifest parsing and validation utilities
  */
 
-export async function readManifest(pluginDir: string): Promise<PluginManifest> {
-  const manifestPath = path.join(pluginDir, 'manifest.mf');
+export async function readManifest(packageDir: string): Promise<PackageManifest> {
+  const manifestPath = path.join(packageDir, 'manifest.mf');
 
   try {
     const content = await fs.readFile(manifestPath, 'utf-8');
 
     // Try parsing as YAML (supports both YAML and JSON)
-    const manifest = YAML.parse(content) as PluginManifest;
+    const manifest = YAML.parse(content) as PackageManifest;
 
     if (!manifest) {
       throw new Error('Empty manifest file');
@@ -30,7 +30,7 @@ export async function readManifest(pluginDir: string): Promise<PluginManifest> {
   }
 }
 
-export function validateManifest(manifest: PluginManifest): ValidationResult {
+export function validateManifest(manifest: PackageManifest): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -97,17 +97,17 @@ export function validateManifest(manifest: PluginManifest): ValidationResult {
   };
 }
 
-export async function findPluginDirectories(pluginsDir: string): Promise<string[]> {
+export async function findPackageDirectories(packagesDir: string): Promise<string[]> {
   try {
-    const entries = await fs.readdir(pluginsDir, { withFileTypes: true });
+    const entries = await fs.readdir(packagesDir, { withFileTypes: true });
     const dirs: string[] = [];
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        const manifestPath = path.join(pluginsDir, entry.name, 'manifest.mf');
+        const manifestPath = path.join(packagesDir, entry.name, 'manifest.mf');
         try {
           await fs.access(manifestPath);
-          dirs.push(path.join(pluginsDir, entry.name));
+          dirs.push(path.join(packagesDir, entry.name));
         } catch {
           logger.debug(`Skipping ${entry.name} - no manifest.mf found`);
         }
@@ -117,7 +117,7 @@ export async function findPluginDirectories(pluginsDir: string): Promise<string[
     return dirs;
   } catch (error) {
     throw new Error(
-      `Failed to read plugins directory: ${error instanceof Error ? error.message : String(error)}`
+      `Failed to read packages directory: ${error instanceof Error ? error.message : String(error)}`
     );
   }
 }
@@ -126,10 +126,12 @@ export function sanitizeName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
 }
 
-export function parsePluginArchiveName(filename: string): { name: string; version: string } | null {
+export function parsePackageArchiveName(
+  filename: string
+): { name: string; version: string } | null {
   const basename = filename.replace('.tar.gz', '');
 
-  // Match pattern: plugin-name-version
+  // Match pattern: package-name-version
   const match = basename.match(/^(.+)-(\d+\.\d+\.\d+.*)$/);
 
   if (match) {

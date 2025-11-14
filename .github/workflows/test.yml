@@ -38,6 +38,7 @@ jobs:
         run: npm run package
 
       - name: Check dist/ is up to date
+        if: ${{ !env.ACT }}  # Skip when running with act locally
         run: |
           if [ "$(git diff --ignore-space-at-eol dist/ | wc -l)" -gt "0" ]; then
             echo "Detected uncommitted changes after build. Please rebuild and commit."
@@ -66,7 +67,7 @@ jobs:
       - name: Validate valid plugins
         uses: ./
         with:
-          plugins-directory: 'tests/valid'
+          packages-directory: 'tests/valid'
           validate-only: 'true'
 
       - name: Display validation results
@@ -88,7 +89,7 @@ jobs:
         continue-on-error: true
         uses: ./
         with:
-          plugins-directory: 'tests/invalid'
+          packages-directory: 'tests/invalid'
           validate-only: 'true'
 
       - name: Check validation failed as expected
@@ -116,9 +117,8 @@ jobs:
         id: package
         uses: ./
         with:
-          plugins-directory: 'tests/valid'
-          package-format: 'tar.gz'  # Creates ZIP for artifacts
-          generate-docs: 'false'
+          packages-directory: 'tests/valid'
+          package-format: 'zip'
 
       - name: Verify packages were created
         run: |

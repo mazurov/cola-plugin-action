@@ -1,53 +1,53 @@
 import * as core from '@actions/core';
 import * as path from 'path';
 import { logger } from './utils/logger';
-import { findPluginDirectories, readManifest, validateManifest } from './utils/manifest';
+import { findPackageDirectories, readManifest, validateManifest } from './utils/manifest';
 
 /**
- * Validate plugin manifests
+ * Validate package manifests
  */
 
 export interface ValidateOptions {
-  pluginsDirectory: string;
+  packagesDirectory: string;
 }
 
 export interface ValidateResult {
-  validPlugins: string[];
-  invalidPlugins: string[];
+  validPackages: string[];
+  invalidPackages: string[];
   totalErrors: number;
   totalWarnings: number;
 }
 
-export async function validatePlugins(options: ValidateOptions): Promise<ValidateResult> {
-  logger.header('Validating Plugin Manifests');
+export async function validatePackages(options: ValidateOptions): Promise<ValidateResult> {
+  logger.header('Validating Package Manifests');
 
-  const { pluginsDirectory } = options;
+  const { packagesDirectory } = options;
 
-  logger.info(`Plugins directory: ${pluginsDirectory}`);
+  logger.info(`Packages directory: ${packagesDirectory}`);
 
-  // Find all plugin directories
-  const pluginDirs = await findPluginDirectories(pluginsDirectory);
+  // Find all package directories
+  const packageDirs = await findPackageDirectories(packagesDirectory);
 
-  if (pluginDirs.length === 0) {
-    throw new Error(`No plugins found in ${pluginsDirectory}`);
+  if (packageDirs.length === 0) {
+    throw new Error(`No packages found in ${packagesDirectory}`);
   }
 
-  logger.info(`Found ${pluginDirs.length} plugin(s)`);
+  logger.info(`Found ${packageDirs.length} package(s)`);
 
-  const validPlugins: string[] = [];
-  const invalidPlugins: string[] = [];
+  const validPackages: string[] = [];
+  const invalidPackages: string[] = [];
   let totalErrors = 0;
   let totalWarnings = 0;
 
-  // Validate each plugin
-  for (const pluginDir of pluginDirs) {
-    const pluginName = path.basename(pluginDir);
+  // Validate each package
+  for (const packageDir of packageDirs) {
+    const packageName = path.basename(packageDir);
 
-    logger.startGroup(`Validating: ${pluginName}`);
+    logger.startGroup(`Validating: ${packageName}`);
 
     try {
       // Read manifest
-      const manifest = await readManifest(pluginDir);
+      const manifest = await readManifest(packageDir);
 
       logger.info(`Package: ${manifest.pkgName}`);
       logger.info(`Version: ${manifest.version}`);
@@ -69,10 +69,10 @@ export async function validatePlugins(options: ValidateOptions): Promise<Validat
         for (const error of validation.errors) {
           logger.error(`  - ${error}`);
         }
-        invalidPlugins.push(pluginName);
+        invalidPackages.push(packageName);
         totalErrors += validation.errors.length;
       } else {
-        validPlugins.push(pluginName);
+        validPackages.push(packageName);
         logger.success('Manifest is valid');
       }
 
@@ -86,9 +86,9 @@ export async function validatePlugins(options: ValidateOptions): Promise<Validat
       }
     } catch (error) {
       logger.error(
-        `Failed to validate ${pluginName}: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to validate ${packageName}: ${error instanceof Error ? error.message : String(error)}`
       );
-      invalidPlugins.push(pluginName);
+      invalidPackages.push(packageName);
       totalErrors++;
     } finally {
       logger.endGroup();
@@ -97,27 +97,27 @@ export async function validatePlugins(options: ValidateOptions): Promise<Validat
 
   // Summary
   logger.header('Validation Summary');
-  logger.info(`Total plugins: ${pluginDirs.length}`);
-  logger.info(`Valid: ${validPlugins.length}`);
-  logger.info(`Invalid: ${invalidPlugins.length}`);
+  logger.info(`Total packages: ${packageDirs.length}`);
+  logger.info(`Valid: ${validPackages.length}`);
+  logger.info(`Invalid: ${invalidPackages.length}`);
   logger.info(`Total errors: ${totalErrors}`);
   logger.info(`Total warnings: ${totalWarnings}`);
 
-  if (invalidPlugins.length > 0) {
+  if (invalidPackages.length > 0) {
     logger.error('❌ Validation failed');
-    logger.error(`Invalid plugins: ${invalidPlugins.join(', ')}`);
+    logger.error(`Invalid packages: ${invalidPackages.join(', ')}`);
   } else {
-    logger.success('✅ All plugins are valid!');
+    logger.success('✅ All packages are valid!');
   }
 
   // Set outputs
-  core.setOutput('validated-plugins', JSON.stringify(validPlugins));
-  core.setOutput('valid-count', validPlugins.length);
-  core.setOutput('invalid-count', invalidPlugins.length);
+  core.setOutput('validated-packages', JSON.stringify(validPackages));
+  core.setOutput('valid-count', validPackages.length);
+  core.setOutput('invalid-count', invalidPackages.length);
 
   return {
-    validPlugins,
-    invalidPlugins,
+    validPackages,
+    invalidPackages,
     totalErrors,
     totalWarnings,
   };

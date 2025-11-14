@@ -1,6 +1,6 @@
 # Cola Plugin Action
 
-A comprehensive GitHub Action for Command Launcher plugin lifecycle management. Automates validation, packaging, and documentation generation for plugin repositories.
+A comprehensive GitHub Action for Command Launcher plugin lifecycle management. Automates validation and packaging for plugin repositories.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -8,20 +8,20 @@ A comprehensive GitHub Action for Command Launcher plugin lifecycle management. 
 
 - ✅ **Manifest Validation** - Validates plugin manifests against Command Launcher specification
 - 📦 **Multi-format Packaging** - Creates ZIP archives for releases and/or pushes to OCI registries
-- 📚 **Auto-documentation** - Generates beautiful GitHub Pages documentation from release assets
 - 🔧 **Local Testing** - Full support for local testing without GitHub infrastructure
 - 🚀 **Easy Integration** - Simple YAML configuration for any plugin repository
 
-## 📚 Ready-to-Use Workflow Templates
+## 📚 Ready-to-Use Workflow Template
 
-Check out the [examples/](examples/) directory for complete workflow templates:
+Check out the complete CI/CD workflow example:
 
-- **[Simple Release](examples/workflows/plugins-simple.yml)** - Basic validation and releases
-- **[Full CI/CD Pipeline](examples/workflows/plugins-ci.yml)** - Complete automation with PR previews
-- **[Tag-Based Release](examples/workflows/plugins-tag-release.yml)** - Semantic versioning with git tags
-- **[Scheduled Maintenance](examples/workflows/plugins-scheduled.yml)** - Automated weekly checks
+- **[Full CI/CD Pipeline](examples/workflows/plugins-ci.yml)** - Complete automation with validation, testing, and releases
 
-See [examples/WORKFLOW_EXAMPLES.md](examples/WORKFLOW_EXAMPLES.md) for detailed setup instructions and customization guide.
+This example includes:
+- ✅ Manifest validation on every push and PR
+- 📦 Test packaging on PRs
+- 🚀 Automated releases to GitHub and OCI registry
+- 🧹 Artifact cleanup
 
 ## Quick Start
 
@@ -39,14 +39,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: criteo/cola-plugin-action@v1
         with:
-          plugins-directory: 'plugins'
+          packages-directory: 'packages'
           validate-only: 'true'
 ```
 
-### Full Pipeline (Package + Docs)
+### Package Plugins
 
 ```yaml
-name: Package and Publish
+name: Package Plugins
 
 on:
   push:
@@ -54,19 +54,17 @@ on:
 
 permissions:
   contents: write
-  pages: write
 
 jobs:
-  release:
+  package:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: criteo/cola-plugin-action@v1
         with:
-          plugins-directory: 'plugins'
-          package-format: 'tar.gz'  # Creates ZIP for artifacts
-          generate-docs: 'false'    # Use dedicated docs-from-releases.yml workflow
+          packages-directory: 'packages'
+          package-format: 'zip'
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -80,7 +78,7 @@ jobs:
 ```yaml
 - uses: criteo/cola-plugin-action@v1
   with:
-    plugins-directory: 'plugins'
+    packages-directory: 'packages'
     package-format: 'oci'
     oci-registry: 'ghcr.io/${{ github.repository_owner }}'
     oci-username: ${{ github.actor }}
@@ -91,16 +89,12 @@ jobs:
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `plugins-directory` | Yes | `plugins` | Root directory containing plugin subdirectories |
+| `packages-directory` | Yes | `packages` | Root directory containing plugin subdirectories |
 | `validate-only` | No | `false` | Only validate manifests without packaging |
-| `package-format` | No | `tar.gz` | Package format: `tar.gz` (creates ZIP), `oci`, or `both` |
+| `package-format` | No | `zip` | Package format: `zip`, `oci`, or `both` |
 | `oci-registry` | No | - | OCI registry URL (e.g., `ghcr.io/username`) |
 | `oci-username` | No | - | OCI registry username |
 | `oci-token` | No | - | OCI registry token/password |
-| `generate-docs` | No | `false` | Generate documentation from GitHub Release assets |
-| `docs-branch` | No | `gh-pages` | Branch to push documentation |
-| `docs-keep-versions` | No | `0` | Number of versions to keep per plugin (0 = keep all) |
-| `github-token` | No | `${{ github.token }}` | GitHub token for pushing to gh-pages and accessing releases |
 
 ## Outputs
 
@@ -214,68 +208,11 @@ make test-package
 # Test package verification (ZIP files)
 make test-verify
 
-# Test documentation generation
-make test-docs
-
 # Run all tests
 make test-all
 
 # Clean up
 make clean
-```
-
-#### Testing Documentation Generation Locally
-
-The `make test-docs` command generates versioned documentation from mock releases locally for preview without pushing to GitHub:
-
-```bash
-make test-docs
-```
-
-This will:
-1. Create mock GitHub Release archives for each plugin version in `tests/valid`
-2. Generate versioned HTML documentation from release assets
-3. Create version selectors for each plugin
-4. Output to `build/docs-from-releases/` with full version history
-5. Display the generated structure and version metadata
-
-**Manual testing with custom plugins:**
-
-```bash
-# Test with your own plugin directory
-PLUGINS_DIR="my-plugins" bash scripts/test-docs-from-releases.sh
-
-# Or modify the default location
-export PLUGINS_DIR="my-plugins"
-export TEMPLATE_PATH="templates/plugin-page.html"
-export OUTPUT_DIR="build/docs-from-releases-custom"
-bash scripts/test-docs-from-releases.sh
-```
-
-**Generated structure:**
-```
-build/docs-from-releases/
-├── index.html                    # Main landing page
-├── versions.json                 # Version metadata for all plugins
-└── plugins/
-    ├── plugin-one/
-    │   ├── index.html           # Version selector page
-    │   ├── v1.0.0/
-    │   │   └── index.html       # Plugin docs for v1.0.0
-    │   ├── v1.1.0/
-    │   │   └── index.html       # Plugin docs for v1.1.0
-    │   └── v2.0.0/
-    │       └── index.html       # Plugin docs for v2.0.0 (latest)
-    └── plugin-two/
-        └── ...
-```
-
-**Serve with live reload:**
-
-```bash
-cd build/docs-from-releases
-python3 -m http.server 8000
-# Open http://localhost:8000 in browser
 ```
 
 ### Manual Testing
@@ -294,10 +231,6 @@ bash scripts/package-plugin.sh
 
 # Verify package (ZIP file)
 bash scripts/verify-package.sh build/packages/valid-test-1.0.0.zip
-
-# Generate and view versioned documentation
-bash scripts/test-docs-from-releases.sh
-open build/docs-from-releases/index.html
 ```
 
 ### Build Directory Structure
@@ -310,18 +243,6 @@ build/
 │   ├── plugin-1.0.0.zip
 │   ├── plugin-1.0.0.json
 │   └── plugin-1.0.0.zip.sha256
-├── docs-from-releases/            # Generated versioned documentation
-│   ├── index.html                # Main landing page
-│   ├── versions.json             # Version metadata
-│   └── plugins/
-│       ├── plugin-one/
-│       │   ├── index.html        # Version selector
-│       │   ├── v1.0.0/
-│       │   │   └── index.html
-│       │   └── v2.0.0/
-│       │       └── index.html
-│       └── plugin-two/
-│           └── ...
 └── test_output.txt                # Test outputs
 ```
 
@@ -421,7 +342,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: criteo/cola-plugin-action@v1
         with:
-          plugins-directory: 'plugins'
+          packages-directory: 'packages'
           validate-only: 'true'
 ```
 
@@ -446,55 +367,17 @@ jobs:
 
       - uses: criteo/cola-plugin-action@v1
         with:
-          plugins-directory: 'plugins'
+          packages-directory: 'packages'
           package-format: 'both'
           oci-registry: 'ghcr.io/${{ github.repository_owner }}'
           oci-username: ${{ github.actor }}
           oci-token: ${{ secrets.GITHUB_TOKEN }}
-          generate-docs: 'false'  # Use dedicated docs-from-releases.yml workflow
 
       - uses: softprops/action-gh-release@v1
         with:
           files: |
             build/packages/*.zip
             build/packages/*.zip.sha256
-```
-
-### Documentation from Releases
-
-```yaml
-name: Update Documentation from Releases
-
-on:
-  # Run after each release is published
-  release:
-    types: [published]
-  # Or run weekly to pick up any changes
-  schedule:
-    - cron: '0 0 * * 0'
-  # Allow manual trigger
-  workflow_dispatch:
-
-permissions:
-  contents: write
-  pages: write
-
-jobs:
-  regenerate-docs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install pandoc (optional, for better markdown rendering)
-        run: sudo apt-get update && sudo apt-get install -y pandoc
-
-      - name: Generate documentation from releases
-        uses: criteo/cola-plugin-action@v1
-        with:
-          generate-docs: 'true'
-          docs-branch: 'gh-pages'
-          docs-keep-versions: '0'  # Keep all versions
-          github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ## Troubleshooting
@@ -547,19 +430,12 @@ For complete validation rules, see the [manifest specification](https://criteo.g
 - Ensure token has `packages:write` permission
 - Check network connectivity to registry
 
-### Documentation Issues
-
-- Ensure GitHub token has `contents:write` permission
-- Check gh-pages branch exists or action can create it
-- For better formatting, install pandoc in workflow
-
 ## Required Permissions
 
 ```yaml
 permissions:
-  contents: write    # For gh-pages push
+  contents: write    # For creating releases
   packages: write    # For OCI registry push
-  pages: write       # For GitHub Pages
 ```
 
 ## Contributing

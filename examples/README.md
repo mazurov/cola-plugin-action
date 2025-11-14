@@ -1,86 +1,119 @@
-# Workflow Examples for Plugin Repositories
+# Example Workflow
 
-This directory contains **ready-to-use GitHub workflow examples** for plugin repositories that want to use the Cola Plugin Action.
+This directory contains a complete CI/CD workflow example for plugin repositories using Cola Plugin Action.
 
-⚠️ **Important:** These workflows are NOT for this repository. They are templates for OTHER repositories that contain Command Launcher plugins.
+> **⚠️ Testing Notice:** This example currently uses `mazurov/cola-plugin-action@master` for testing purposes.
+> When using in production, update to `criteo/cola-plugin-action@v1` (or latest version).
 
-## 📁 Directory Structure
+## 📁 Available Workflow
 
-```
-examples/
-├── README.md                    # This file
-├── WORKFLOW_EXAMPLES.md         # Comprehensive documentation
-└── workflows/
-    ├── plugins-simple.yml       # Simple workflow (recommended for most)
-    ├── plugins-ci.yml           # Full CI/CD pipeline
-    ├── plugins-tag-release.yml  # Tag-based releases
-    └── plugins-scheduled.yml    # Scheduled maintenance
-```
+- **[plugins-ci.yml](workflows/plugins-ci.yml)** - Full CI/CD pipeline with validation, testing, and releases
 
-## 🚀 Quick Start
+## 🚀 Quick Setup
 
-### For Plugin Repository Owners
+1. **Copy the workflow to your plugin repository:**
 
-If you have a repository with Command Launcher plugins and want to set up automated releases:
-
-1. **Choose a workflow** that fits your needs (see comparison below)
-2. **Copy it to your plugin repository:**
    ```bash
-   cp examples/workflows/plugins-simple.yml YOUR_PLUGIN_REPO/.github/workflows/release.yml
+   mkdir -p .github/workflows
+   cp examples/workflows/plugins-ci.yml .github/workflows/plugins-ci.yml
    ```
-3. **Configure GitHub Pages** in your repository settings
-4. **Push to trigger** the workflow
 
-## 📋 Workflow Comparison
+2. **Update the action reference for production use:**
 
-| Workflow | Best For | Complexity | Features |
-|----------|----------|------------|----------|
-| **plugins-simple.yml** | Getting started | ⭐ Easy | Validation, ZIP packages, docs |
-| **plugins-ci.yml** | Production use | ⭐⭐⭐ Advanced | Full CI/CD, ZIP+OCI, PR previews |
-| **plugins-tag-release.yml** | Version tags | ⭐⭐ Medium | Semver releases, ZIP+OCI, changelogs |
-| **plugins-scheduled.yml** | Maintenance | ⭐ Easy | Weekly checks, auto-docs |
+   Replace all instances of:
+   ```yaml
+   uses: mazurov/cola-plugin-action@master
+   ```
 
-## 📖 Detailed Documentation
+   With:
+   ```yaml
+   uses: criteo/cola-plugin-action@v1  # or latest stable version
+   ```
 
-See [WORKFLOW_EXAMPLES.md](./WORKFLOW_EXAMPLES.md) for:
-- Complete setup instructions
-- Detailed feature descriptions
-- Customization examples
-- Troubleshooting guide
-- Advanced usage patterns
+3. **Customize the workflow for your needs:**
+   - Change `packages-directory` if your plugins are not in `packages/`
+   - Modify `package-format` based on your distribution strategy:
+     - `'zip'` - GitHub Releases only
+     - `'oci'` - OCI registry only
+     - `'both'` - Both GitHub Releases and OCI registry
 
-## 💡 Example Plugin Repository
+4. **Ensure your repository has the required structure:**
 
-Your plugin repository should look like this:
+   ```
+   your-plugin-repo/
+   ├── packages/
+   │   ├── plugin-one/
+   │   │   ├── manifest.mf
+   │   │   └── README.md
+   │   └── plugin-two/
+   │       ├── manifest.mf
+   │       └── README.md
+   └── .github/
+       └── workflows/
+           └── plugins-ci.yml
+   ```
 
+5. **Configure GitHub repository settings:**
+   - Go to Settings → Actions → General
+   - Under "Workflow permissions", ensure:
+     - ✅ Read and write permissions
+     - ✅ Allow GitHub Actions to create and approve pull requests (if using)
+
+## 📦 What the Workflow Does
+
+### On Pull Requests:
+- ✅ Validates all plugin manifests
+- 📦 Tests package generation (creates ZIP files)
+- 📤 Uploads test packages as artifacts
+
+### On Push to Main/Develop:
+- ✅ Validates all plugin manifests
+- 📦 Creates ZIP packages
+- 🚀 Pushes to GitHub Container Registry (OCI)
+- 📝 Creates GitHub Release with packages
+- 🧹 Cleans up old workflow artifacts
+
+## 🔧 Customization
+
+### Change Target Branches
+
+```yaml
+if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
 ```
-your-plugin-repo/
-├── plugins/                    # Plugins directory
-│   ├── my-plugin/
-│   │   ├── manifest.mf        # Required: JSON or YAML
-│   │   ├── README.md          # Recommended
-│   │   └── bin/
-│   └── another-plugin/
-│       ├── manifest.mf
-│       └── README.md
-├── .github/
-│   └── workflows/
-│       └── release.yml        # Copy from examples/workflows/
-└── README.md
+
+Change `main` and `develop` to your branch names.
+
+### Package Format Options
+
+```yaml
+# ZIP only (GitHub Releases)
+package-format: 'zip'
+
+# OCI registry only
+package-format: 'oci'
+
+# Both ZIP and OCI
+package-format: 'both'
 ```
 
-## 🔗 Links
+### OCI Registry Configuration
 
-- **Action Repository:** [criteo/cola-plugin-action](https://github.com/criteo/cola-plugin-action)
-- **Action Documentation:** [README.md](../README.md)
-- **Command Launcher:** [criteo.github.io/command-launcher](https://criteo.github.io/command-launcher/)
+By default, uses GitHub Container Registry:
 
-## ❓ Need Help?
+```yaml
+oci-registry: 'ghcr.io/${{ github.repository_owner }}'
+oci-username: ${{ github.actor }}
+oci-token: ${{ secrets.GITHUB_TOKEN }}
+```
 
-- Read [WORKFLOW_EXAMPLES.md](./WORKFLOW_EXAMPLES.md) for detailed documentation
-- Check the [main README](../README.md) for action usage
-- Open an [issue](https://github.com/criteo/cola-plugin-action/issues) if you need support
+For other registries (Docker Hub, AWS ECR, etc.):
 
----
+```yaml
+oci-registry: 'docker.io/yourusername'
+oci-username: ${{ secrets.DOCKER_USERNAME }}
+oci-token: ${{ secrets.DOCKER_TOKEN }}
+```
 
-**Note:** These are templates for plugin repositories, not for this action repository itself.
+## 📚 Documentation
+
+For more details, see the main [README.md](../README.md).

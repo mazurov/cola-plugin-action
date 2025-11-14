@@ -1,13 +1,13 @@
 /**
- * Validate plugin manifests
+ * Validate package manifests
  */
 export interface ValidateOptions {
-    pluginsDirectory: string;
+    packagesDirectory: string;
 }
 export interface ValidateResult {
-    validPlugins: string[];
-    invalidPlugins: string[];
+    validPackages: string[];
+    invalidPackages: string[];
     totalErrors: number;
     totalWarnings: number;
 }
-export declare function validatePlugins(options: ValidateOptions): Promise<ValidateResult>;
+export declare function validatePackages(options: ValidateOptions): Promise<ValidateResult>;

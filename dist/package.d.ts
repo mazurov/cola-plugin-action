@@ -1,14 +1,14 @@
 import { ArchiveFormat } from './utils/archive';
-import { PackagedPlugin } from './types/manifest';
+import { PackagedPackage } from './types/manifest';
 /**
- * Package plugins into archives (ZIP or tar.gz)
+ * Create packages archives (ZIP or tar.gz)
  */
 export interface PackageOptions {
-    pluginsDirectory: string;
+    packagesDirectory: string;
     outputDirectory: string;
     format?: ArchiveFormat;
 }
 export interface PackageResult {
-    packages: PackagedPlugin[];
+    packages: PackagedPackage[];
 }
-export declare function packagePlugins(options: PackageOptions): Promise<PackageResult>;
+export declare function createPackages(options: PackageOptions): Promise<PackageResult>;

@@ -2,7 +2,7 @@
  * Push plugins to OCI registry using ORAS
  */
 export interface OCIPushOptions {
-    pluginsDirectory: string;
+    packagesDirectory: string;
     registry: string;
     username: string;
     token: string;

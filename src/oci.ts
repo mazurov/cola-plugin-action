@@ -50,22 +50,20 @@ export async function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult>
 
   // Push each package
   for (const packageDir of packageDirs) {
-    const packageName = path.basename(packageDir);
+    const folderName = path.basename(packageDir);
 
-    logger.startGroup(`Processing: ${packageName}`);
+    logger.startGroup(`Processing: ${folderName}`);
 
     try {
       // Read manifest
       const manifest = await readManifest(packageDir);
 
-      const commandName = manifest.cmds[0]?.name || manifest.pkgName;
-      const safeName = sanitizeName(commandName);
+      const safeName = sanitizeName(manifest.pkgName);
       const ociRef = `${registry}/${safeName}`;
       const version = manifest.version;
 
       logger.info(`Package: ${manifest.pkgName}`);
       logger.info(`Version: ${version}`);
-      logger.info(`Command: ${commandName}`);
       logger.info(`OCI Reference: ${ociRef}:${version}`);
 
       // Check if version already exists
@@ -85,7 +83,7 @@ export async function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult>
       const tempArchive = path.join(tempDir, 'package.tar.gz');
 
       try {
-        await createTarGz(packageDir, tempArchive, packageName);
+        await createTarGz(packageDir, tempArchive, manifest.pkgName);
 
         // Push to OCI registry
         const annotations = [
@@ -114,7 +112,7 @@ export async function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult>
       }
     } catch (error) {
       logger.error(
-        `Failed to push ${packageName}: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to push ${folderName} folder: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     } finally {
@@ -223,7 +221,9 @@ async function checkOCITagExists(ociRef: string, tag: string): Promise<boolean> 
 
     return exists;
   } catch (error) {
-    logger.error(`Error checking OCI tag existence: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error(
+      `Error checking OCI tag existence: ${error instanceof Error ? error.message : String(error)}`
+    );
     return false;
   }
 }

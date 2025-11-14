@@ -36973,18 +36973,16 @@ async function pushToOCI(options) {
     let skippedCount = 0;
     // Push each package
     for (const packageDir of packageDirs) {
-        const packageName = path.basename(packageDir);
-        logger_1.logger.startGroup(`Processing: ${packageName}`);
+        const folderName = path.basename(packageDir);
+        logger_1.logger.startGroup(`Processing: ${folderName}`);
         try {
             // Read manifest
             const manifest = await (0, manifest_1.readManifest)(packageDir);
-            const commandName = manifest.cmds[0]?.name || manifest.pkgName;
-            const safeName = (0, manifest_1.sanitizeName)(commandName);
+            const safeName = (0, manifest_1.sanitizeName)(manifest.pkgName);
             const ociRef = `${registry}/${safeName}`;
             const version = manifest.version;
             logger_1.logger.info(`Package: ${manifest.pkgName}`);
             logger_1.logger.info(`Version: ${version}`);
-            logger_1.logger.info(`Command: ${commandName}`);
             logger_1.logger.info(`OCI Reference: ${ociRef}:${version}`);
             // Check if version already exists
             const exists = await checkOCITagExists(ociRef, version);
@@ -36999,7 +36997,7 @@ async function pushToOCI(options) {
             const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'oci-push-'));
             const tempArchive = path.join(tempDir, 'package.tar.gz');
             try {
-                await (0, archive_1.createTarGz)(packageDir, tempArchive, packageName);
+                await (0, archive_1.createTarGz)(packageDir, tempArchive, manifest.pkgName);
                 // Push to OCI registry
                 const annotations = [
                     `org.opencontainers.image.title=${manifest.pkgName}`,
@@ -37021,7 +37019,7 @@ async function pushToOCI(options) {
             }
         }
         catch (error) {
-            logger_1.logger.error(`Failed to push ${packageName}: ${error instanceof Error ? error.message : String(error)}`);
+            logger_1.logger.error(`Failed to push ${folderName} folder: ${error instanceof Error ? error.message : String(error)}`);
             throw error;
         }
         finally {

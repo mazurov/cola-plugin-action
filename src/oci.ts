@@ -204,10 +204,26 @@ async function orasLogout(registry: string): Promise<void> {
 }
 
 async function checkOCITagExists(ociRef: string, tag: string): Promise<boolean> {
+  logger.info(`Checking if OCI tag exists: ${ociRef}:${tag}`);
+
   try {
-    await exec.exec('oras', ['manifest', 'fetch', `${ociRef}:${tag}`]);
-    return true;
-  } catch {
+    let exitCode = -1;
+
+    // Use ignoreReturnCode and silent to handle the command properly
+    exitCode = await exec.exec('oras', ['manifest', 'fetch', `${ociRef}:${tag}`], {
+      silent: true,
+      ignoreReturnCode: true,
+    });
+
+    logger.info(`ORAS manifest fetch exit code: ${exitCode}`);
+
+    // Return true only if the command succeeded (exit code 0)
+    const exists = exitCode === 0;
+    logger.info(`Tag ${ociRef}:${tag} ${exists ? 'EXISTS' : 'NOT FOUND'}`);
+
+    return exists;
+  } catch (error) {
+    logger.error(`Error checking OCI tag existence: ${error instanceof Error ? error.message : String(error)}`);
     return false;
   }
 }

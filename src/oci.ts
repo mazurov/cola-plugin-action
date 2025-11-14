@@ -238,6 +238,7 @@ async function orasPush(
     'push',
     `${ociRef}:${tag}`,
     `${archivePath}:application/vnd.oci.image.layer.v1.tar+gzip`,
+    '--disable-path-validation', // Allow absolute paths
   ];
 
   for (const annotation of annotations) {

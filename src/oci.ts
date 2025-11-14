@@ -186,6 +186,9 @@ async function orasLogin(registry: string, username: string, token: string): Pro
   // Extract hostname from registry URL (e.g., "ghcr.io/username" -> "ghcr.io")
   const registryHostname = registry.split('/')[0];
 
+  logger.info(`Command: oras login ${registryHostname} -u ${username} --password-stdin`);
+  logger.info(`Token: ${token.substring(0, 4)}${'*'.repeat(token.length - 4)}`);
+
   await exec.exec('oras', ['login', registryHostname, '-u', username, '--password-stdin'], {
     input: Buffer.from(token),
     silent: true,
@@ -228,9 +231,12 @@ async function orasPush(
     args.push('--annotation', annotation);
   }
 
+  logger.info(`Command: oras ${args.join(' ')}`);
+
   await exec.exec('oras', args);
 }
 
 async function orasTag(ociRef: string, sourceTag: string, targetTag: string): Promise<void> {
+  logger.info(`Command: oras tag ${ociRef}:${sourceTag} ${targetTag}`);
   await exec.exec('oras', ['tag', `${ociRef}:${sourceTag}`, targetTag]);
 }

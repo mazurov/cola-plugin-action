@@ -37078,14 +37078,20 @@ async function installOras() {
 }
 async function orasLogin(registry, username, token) {
     logger_1.logger.info('Authenticating to OCI registry...');
-    await exec.exec('oras', ['login', registry, '-u', username, '--password-stdin'], {
+    // Extract hostname from registry URL (e.g., "ghcr.io/username" -> "ghcr.io")
+    const registryHostname = registry.split('/')[0];
+    logger_1.logger.info(`Command: oras login ${registryHostname} -u ${username} --password-stdin`);
+    logger_1.logger.info(`Token: ${token.substring(0, 4)}${'*'.repeat(token.length - 4)}`);
+    await exec.exec('oras', ['login', registryHostname, '-u', username, '--password-stdin'], {
         input: Buffer.from(token),
         silent: true,
     });
     logger_1.logger.success('Authentication successful');
 }
 async function orasLogout(registry) {
-    await exec.exec('oras', ['logout', registry], { silent: true });
+    // Extract hostname from registry URL (e.g., "ghcr.io/username" -> "ghcr.io")
+    const registryHostname = registry.split('/')[0];
+    await exec.exec('oras', ['logout', registryHostname], { silent: true });
 }
 async function checkOCITagExists(ociRef, tag) {
     try {
@@ -37108,9 +37114,11 @@ async function orasPush(ociRef, tag, archivePath, annotations) {
     for (const annotation of annotations) {
         args.push('--annotation', annotation);
     }
+    logger_1.logger.info(`Command: oras ${args.join(' ')}`);
     await exec.exec('oras', args);
 }
 async function orasTag(ociRef, sourceTag, targetTag) {
+    logger_1.logger.info(`Command: oras tag ${ociRef}:${sourceTag} ${targetTag}`);
     await exec.exec('oras', ['tag', `${ociRef}:${sourceTag}`, targetTag]);
 }
 

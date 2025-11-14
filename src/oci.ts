@@ -83,7 +83,7 @@ export async function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult>
       const tempArchive = path.join(tempDir, 'package.tar.gz');
 
       try {
-        await createTarGz(packageDir, tempArchive, manifest.pkgName);
+        await createTarGz(packageDir, tempArchive, folderName);
 
         // Push to OCI registry
         const annotations = [

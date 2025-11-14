@@ -36997,7 +36997,7 @@ async function pushToOCI(options) {
             const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'oci-push-'));
             const tempArchive = path.join(tempDir, 'package.tar.gz');
             try {
-                await (0, archive_1.createTarGz)(packageDir, tempArchive, manifest.pkgName);
+                await (0, archive_1.createTarGz)(packageDir, tempArchive, folderName);
                 // Push to OCI registry
                 const annotations = [
                     `org.opencontainers.image.title=${manifest.pkgName}`,

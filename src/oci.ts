@@ -80,7 +80,7 @@ export async function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult>
 
       // Create temporary archive
       const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'oci-push-'));
-      const tempArchive = path.join(tempDir, 'package.tar.gz');
+      const tempArchive = path.join(tempDir, `${manifest.pkgName}.tar.gz`);
 
       try {
         await createTarGz(packageDir, tempArchive, manifest.pkgName);

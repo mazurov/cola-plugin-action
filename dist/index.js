@@ -36997,7 +36997,7 @@ async function pushToOCI(options) {
             const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'oci-push-'));
             const tempArchive = path.join(tempDir, 'package.tar.gz');
             try {
-                await (0, archive_1.createTarGz)(packageDir, tempArchive, folderName);
+                await (0, archive_1.createTarGz)(packageDir, tempArchive, manifest.pkgName);
                 // Push to OCI registry
                 const annotations = [
                     `org.opencontainers.image.title=${manifest.pkgName}`,
@@ -37112,17 +37112,21 @@ async function checkOCITagExists(ociRef, tag) {
     }
 }
 async function orasPush(ociRef, tag, archivePath, annotations) {
+    const archiveDir = path.dirname(archivePath);
+    const archiveFileName = path.basename(archivePath);
     const args = [
         'push',
         `${ociRef}:${tag}`,
-        `${archivePath}:application/vnd.oci.image.layer.v1.tar+gzip`,
-        '--disable-path-validation', // Allow absolute paths
+        `${archiveFileName}:application/vnd.oci.image.layer.v1.tar+gzip`,
     ];
     for (const annotation of annotations) {
         args.push('--annotation', annotation);
     }
     logger_1.logger.info(`Command: oras ${args.join(' ')}`);
-    await exec.exec('oras', args);
+    logger_1.logger.info(`Working directory: ${archiveDir}`);
+    await exec.exec('oras', args, {
+        cwd: archiveDir,
+    });
 }
 async function orasTag(ociRef, sourceTag, targetTag) {
     logger_1.logger.info(`Command: oras tag ${ociRef}:${sourceTag} ${targetTag}`);
@@ -37314,11 +37318,35 @@ const logger_1 = __nccwpck_require__(7893);
 async function createTarGz(sourceDir, outputPath, baseName) {
     logger_1.logger.info(`Creating tar.gz archive: ${outputPath}`);
     try {
-        await tar_1.default.create({
-            gzip: true,
-            file: outputPath,
-            cwd: path.dirname(sourceDir),
-        }, [baseName]);
+        const tempDir = await fs.mkdtemp(path.join(path.dirname(outputPath), 'tar-temp-'));
+        const tempBasePath = path.join(tempDir, baseName);
+        try {
+            // Create temporary directory with the desired base name
+            await fs.mkdir(tempBasePath, { recursive: true });
+            // Copy all contents from source to temp directory
+            const items = await fs.readdir(sourceDir);
+            for (const item of items) {
+                const srcPath = path.join(sourceDir, item);
+                const destPath = path.join(tempBasePath, item);
+                const stats = await fs.stat(srcPath);
+                if (stats.isDirectory()) {
+                    await fs.cp(srcPath, destPath, { recursive: true });
+                }
+                else {
+                    await fs.copyFile(srcPath, destPath);
+                }
+            }
+            // Create tar.gz from the temporary structure
+            await tar_1.default.create({
+                gzip: true,
+                file: outputPath,
+                cwd: tempDir,
+            }, [baseName]);
+        }
+        finally {
+            // Clean up temporary directory
+            await fs.rm(tempDir, { recursive: true, force: true });
+        }
         const stats = await fs.stat(outputPath);
         logger_1.logger.success(`Created tar.gz archive: ${outputPath} (${formatBytes(stats.size)})`);
     }

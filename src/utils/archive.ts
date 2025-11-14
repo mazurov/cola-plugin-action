@@ -19,14 +19,40 @@ export async function createTarGz(
   logger.info(`Creating tar.gz archive: ${outputPath}`);
 
   try {
-    await tar.create(
-      {
-        gzip: true,
-        file: outputPath,
-        cwd: path.dirname(sourceDir),
-      },
-      [baseName]
-    );
+    const tempDir = await fs.mkdtemp(path.join(path.dirname(outputPath), 'tar-temp-'));
+    const tempBasePath = path.join(tempDir, baseName);
+
+    try {
+      // Create temporary directory with the desired base name
+      await fs.mkdir(tempBasePath, { recursive: true });
+
+      // Copy all contents from source to temp directory
+      const items = await fs.readdir(sourceDir);
+      for (const item of items) {
+        const srcPath = path.join(sourceDir, item);
+        const destPath = path.join(tempBasePath, item);
+
+        const stats = await fs.stat(srcPath);
+        if (stats.isDirectory()) {
+          await fs.cp(srcPath, destPath, { recursive: true });
+        } else {
+          await fs.copyFile(srcPath, destPath);
+        }
+      }
+
+      // Create tar.gz from the temporary structure
+      await tar.create(
+        {
+          gzip: true,
+          file: outputPath,
+          cwd: tempDir,
+        },
+        [baseName]
+      );
+    } finally {
+      // Clean up temporary directory
+      await fs.rm(tempDir, { recursive: true, force: true });
+    }
 
     const stats = await fs.stat(outputPath);
     logger.success(`Created tar.gz archive: ${outputPath} (${formatBytes(stats.size)})`);

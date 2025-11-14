@@ -83,7 +83,7 @@ export async function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult>
       const tempArchive = path.join(tempDir, 'package.tar.gz');
 
       try {
-        await createTarGz(packageDir, tempArchive, folderName);
+        await createTarGz(packageDir, tempArchive, manifest.pkgName);
 
         // Push to OCI registry
         const annotations = [
@@ -234,11 +234,13 @@ async function orasPush(
   archivePath: string,
   annotations: string[]
 ): Promise<void> {
+  const archiveDir = path.dirname(archivePath);
+  const archiveFileName = path.basename(archivePath);
+
   const args = [
     'push',
     `${ociRef}:${tag}`,
-    `${archivePath}:application/vnd.oci.image.layer.v1.tar+gzip`,
-    '--disable-path-validation', // Allow absolute paths
+    `${archiveFileName}:application/vnd.oci.image.layer.v1.tar+gzip`,
   ];
 
   for (const annotation of annotations) {
@@ -246,8 +248,11 @@ async function orasPush(
   }
 
   logger.info(`Command: oras ${args.join(' ')}`);
+  logger.info(`Working directory: ${archiveDir}`);
 
-  await exec.exec('oras', args);
+  await exec.exec('oras', args, {
+    cwd: archiveDir,
+  });
 }
 
 async function orasTag(ociRef: string, sourceTag: string, targetTag: string): Promise<void> {

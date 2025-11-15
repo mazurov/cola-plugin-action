@@ -7,6 +7,6 @@ export declare function validateManifest(manifest: PackageManifest): ValidationR
 export declare function findPackageDirectories(packagesDir: string): Promise<string[]>;
 export declare function sanitizeName(name: string): string;
 export declare function parsePackageArchiveName(filename: string): {
-  name: string;
-  version: string;
+    name: string;
+    version: string;
 } | null;

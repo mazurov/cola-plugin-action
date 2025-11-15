@@ -70,7 +70,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: plugins
-          path: build/packages/*.zip
+          path: build/packages/*.pkg
 ```
 
 ### OCI Registry Push
@@ -202,10 +202,10 @@ brew install yq git pandoc bc
 # Quick validation test
 make test-validate
 
-# Test packaging (creates ZIP files)
+# Test packaging (creates .pkg files)
 make test-package
 
-# Test package verification (ZIP files)
+# Test package verification (.pkg files)
 make test-verify
 
 # Run all tests
@@ -229,8 +229,8 @@ bash scripts/validate-manifest.sh
 # Test packaging
 bash scripts/package-plugin.sh
 
-# Verify package (ZIP file)
-bash scripts/verify-package.sh build/packages/valid-test-1.0.0.zip
+# Verify package (.pkg file)
+bash scripts/verify-package.sh build/packages/valid-test-1.0.0.pkg
 ```
 
 ### Build Directory Structure
@@ -240,9 +240,8 @@ All build artifacts are organized in the `build/` directory:
 ```
 build/
 ├── packages/                      # Packaged plugins
-│   ├── plugin-1.0.0.zip
-│   ├── plugin-1.0.0.json
-│   └── plugin-1.0.0.zip.sha256
+│   ├── plugin-1.0.0.pkg
+│   └── plugin-1.0.0.json
 └── test_output.txt                # Test outputs
 ```
 
@@ -375,9 +374,7 @@ jobs:
 
       - uses: softprops/action-gh-release@v1
         with:
-          files: |
-            build/packages/*.zip
-            build/packages/*.zip.sha256
+          files: build/packages/*.pkg
 ```
 
 ## Troubleshooting

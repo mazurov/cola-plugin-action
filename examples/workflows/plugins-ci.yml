@@ -68,7 +68,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Package plugins (ZIP)
+      - name: Package plugins (.pkg)
         uses: mazurov/cola-plugin-action@main
         with:
           packages-directory: 'packages'
@@ -77,19 +77,14 @@ jobs:
       - name: List generated packages
         run: |
           echo "📦 Generated packages:"
-          ls -lh build/packages/*.zip
-          echo ""
-          echo "📝 Checksums:"
-          ls -lh build/packages/*.zip.sha256
+          ls -lh build/packages/*.pkg
 
       - name: Upload test packages as artifacts
         if: ${{ !env.ACT }}  # Skip when running with act locally
         uses: actions/upload-artifact@v4
         with:
           name: test-plugin-packages
-          path: |
-            build/packages/*.zip
-            build/packages/*.zip.sha256
+          path: build/packages/*.pkg
           retention-days: 7
 
   # ============================================================================
@@ -119,7 +114,7 @@ jobs:
           package-format: 'both'  # Create ZIP archives AND push to OCI registry
           oci-registry: 'ghcr.io/${{ github.repository_owner }}'
           oci-username: ${{ github.actor }}
-          oci-token: ${{ secrets.GITHUB_TOKEN }}
+          oci-token: ${{ secrets.OCI_TOKEN }}
 
       - name: Generate release notes
         id: release-notes
@@ -142,13 +137,13 @@ jobs:
 
           ## 🚀 Installation
 
-          ### Via ZIP (GitHub Releases)
+          ### Via Package File (GitHub Releases)
 
           Download the plugin archive from the assets below and extract it to your Command Launcher plugins directory:
 
           ```bash
-          # Download and extract
-          unzip <plugin-name>-<version>.zip -d ~/.command-launcher/plugins/
+          # Download and extract (.pkg files are ZIP archives)
+          unzip <plugin-name>-<version>.pkg -d ~/.command-launcher/plugins/
           ```
 
           ### Via OCI Registry (Recommended)
@@ -181,9 +176,7 @@ jobs:
           tag_name: release-${{ github.run_number }}
           name: Plugin Release ${{ github.run_number }}
           body_path: release-notes.md
-          files: |
-            build/packages/*.zip
-            build/packages/*.zip.sha256
+          files: build/packages/*.pkg
           draft: false
           prerelease: false
           fail_on_unmatched_files: false  # Don't fail if some files are missing

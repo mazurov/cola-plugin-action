@@ -106,7 +106,7 @@ jobs:
   # Packaging Tests
   # ===========================================================================
   test-packaging:
-    name: Test Packaging (ZIP)
+    name: Test Packaging (.pkg)
     runs-on: ubuntu-latest
     needs: build-and-test
     steps:
@@ -128,23 +128,19 @@ jobs:
             exit 1
           fi
 
-          package_count=$(ls -1 build/packages/*.zip 2>/dev/null | wc -l)
+          package_count=$(ls -1 build/packages/*.pkg 2>/dev/null | wc -l)
           if [ "$package_count" -eq 0 ]; then
-            echo "❌ No ZIP packages found"
+            echo "❌ No .pkg packages found"
             exit 1
           fi
 
           echo "✅ Found $package_count package(s):"
-          ls -lh build/packages/*.zip
-
-          echo ""
-          echo "Checksums:"
-          ls -1 build/packages/*.sha256
+          ls -lh build/packages/*.pkg
 
       - name: Verify package contents
         run: |
           echo "📋 Verifying package contents..."
-          for archive in build/packages/*.zip; do
+          for archive in build/packages/*.pkg; do
             if [ -f "$archive" ]; then
               echo ""
               echo "Contents of $(basename $archive):"
@@ -160,50 +156,12 @@ jobs:
             fi
           done
 
-      - name: Verify SHA256 checksums
-        run: |
-          echo "🔐 Verifying SHA256 checksums..."
-          cd build/packages
-
-          for zip_file in *.zip; do
-            if [ -f "$zip_file" ]; then
-              checksum_file="${zip_file}.sha256"
-
-              if [ ! -f "$checksum_file" ]; then
-                echo "❌ Checksum file missing: $checksum_file"
-                exit 1
-              fi
-
-              echo ""
-              echo "Verifying: $zip_file"
-
-              # Read expected checksum from file
-              expected_checksum=$(cat "$checksum_file" | awk '{print $1}')
-              echo "  Expected (from .sha256): $expected_checksum"
-
-              # Calculate actual checksum
-              actual_checksum=$(sha256sum "$zip_file" | awk '{print $1}')
-              echo "  Actual   (calculated):   $actual_checksum"
-
-              # Compare checksums
-              if [ "$expected_checksum" = "$actual_checksum" ]; then
-                echo "  ✅ Checksums match!"
-              else
-                echo "  ❌ Checksums DO NOT match!"
-                exit 1
-              fi
-            fi
-          done
-
-          echo ""
-          echo "✅ All checksums verified successfully"
-
       - name: Upload test packages
         if: ${{ !env.ACT }}  # Skip when running with act locally
         uses: actions/upload-artifact@v4
         with:
           name: test-packages
-          path: build/packages/*.zip
+          path: build/packages/*.pkg
           retention-days: 7
 
   # ===========================================================================

@@ -37,6 +37,11 @@ inputs:
     required: false
     default: ''
 
+  github-token:
+    description: 'GitHub token for creating individual releases for each plugin (format: plugin-name-version)'
+    required: false
+    default: ''
+
 outputs:
   validated-packages:
     description: 'JSON array of validated package directories'

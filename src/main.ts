@@ -3,6 +3,7 @@ import { logger } from './utils/logger';
 import { validatePackages } from './validate';
 import { createPackages } from './package';
 import { pushToOCI } from './oci';
+import { createPluginReleases } from './release';
 
 /**
  * Main entry point for the Cola Plugin Action
@@ -17,6 +18,8 @@ async function run(): Promise<void> {
     const ociRegistry = core.getInput('oci-registry');
     const ociUsername = core.getInput('oci-username');
     const ociToken = core.getInput('oci-token');
+    const githubToken = core.getInput('github-token');
+    const githubRepository = process.env.GITHUB_REPOSITORY || '';
 
     logger.header('Cola Package Action');
     logger.info(`Packages Directory: ${packagesDirectory}`);
@@ -43,6 +46,7 @@ async function run(): Promise<void> {
     // Step 2: Package plugins
     let packagesCreated = false;
     const outputDirectory = 'build/packages';
+    let packageResult: Awaited<ReturnType<typeof createPackages>> | null = null;
 
     // Determine what to create based on package format
     const needsZipPackages = packageFormat === 'zip' || packageFormat === 'both';
@@ -51,7 +55,7 @@ async function run(): Promise<void> {
     // Create ZIP archives for GitHub Releases/Artifacts AND for OCI registry push
     // ZIP archives are needed for both artifact uploads and OCI registry pushes
     if (needsZipPackages || needsOciPush) {
-      await createPackages({
+      packageResult = await createPackages({
         packagesDirectory,
         outputDirectory,
         format: 'zip',
@@ -70,6 +74,20 @@ async function run(): Promise<void> {
         registry: ociRegistry,
         username: ociUsername,
         token: ociToken,
+      });
+    }
+
+    // Step 4: Create GitHub Releases (one release per plugin)
+    if (packageResult && packageResult.packages.length > 0 && githubToken) {
+      if (!githubRepository) {
+        throw new Error('GITHUB_REPOSITORY environment variable not set');
+      }
+
+      await createPluginReleases({
+        packages: packageResult.packages,
+        packagesDirectory,
+        githubToken,
+        repository: githubRepository,
       });
     }
 

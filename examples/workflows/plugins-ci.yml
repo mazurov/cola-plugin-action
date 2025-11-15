@@ -12,22 +12,20 @@ name: Plugin CI/CD Pipeline
 on:
   push:
     # Validate on pushes to ANY branch
-    # Only main/develop will create releases (controlled by job conditions)
+    # Only main/develop will package and publish plugins (controlled by job conditions)
     paths:
-      - 'plugins/**'
+      - 'packages/**'
       - '.github/workflows/plugins-ci.yml'
   pull_request:
     # Validate on ALL pull requests (regardless of target branch)
     paths:
-      - 'plugins/**'
+      - 'packages/**'
       - '.github/workflows/plugins-ci.yml'
   workflow_dispatch:
 
 permissions:
-  contents: write
-  packages: write
-  pages: write
-  id-token: write
+  contents: write  # Required for creating releases
+  packages: write  # Required for pushing to OCI registry
 
 jobs:
   # ============================================================================
@@ -89,7 +87,7 @@ jobs:
 
   # ============================================================================
   # Release Job - Runs on main and develop branches only
-  # Creates GitHub Release and publishes to OCI registry
+  # Packages plugins, creates individual GitHub releases, and publishes to OCI registry
   # ============================================================================
   release:
     name: Release Plugins
@@ -111,90 +109,19 @@ jobs:
         uses: mazurov/cola-plugin-action@main
         with:
           packages-directory: 'packages'
-          package-format: 'both'  # Create ZIP archives AND push to OCI registry
+          package-format: 'both'  # Create .pkg archives AND push to OCI registry
           oci-registry: 'ghcr.io/${{ github.repository_owner }}'
           oci-username: ${{ github.actor }}
           oci-token: ${{ secrets.OCI_TOKEN }}
-
-      - name: Generate release notes
-        id: release-notes
-        run: |
-          cat << 'EOF' > release-notes.md
-          # Command Launcher Plugins Release
-
-          ## 📦 Published Plugins
-
-          This release includes the following plugins:
-
-          EOF
-
-          # Parse validated plugins JSON and add to release notes
-          echo '${{ needs.validate.outputs.validated-plugins }}' | jq -r '.[]' | while read plugin; do
-            echo "- **${plugin}**" >> release-notes.md
-          done
-
-          cat << 'EOF' >> release-notes.md
-
-          ## 🚀 Installation
-
-          ### Via Package File (GitHub Releases)
-
-          Download the plugin archive from the assets below and extract it to your Command Launcher plugins directory:
-
-          ```bash
-          # Download and extract (.pkg files are ZIP archives)
-          unzip <plugin-name>-<version>.pkg -d ~/.command-launcher/plugins/
-          ```
-
-          ### Via OCI Registry (Recommended)
-
-          Pull plugins directly from the GitHub Container Registry:
-
-          ```bash
-          # Using ORAS
-          oras pull ghcr.io/${{ github.repository_owner }}/<plugin-name>:<version>
-
-          # Or using Command Launcher (if supported)
-          cola plugin install ghcr.io/${{ github.repository_owner }}/<plugin-name>:<version>
-          ```
-
-          ## 🔍 Registry Information
-
-          - **Registry:** ghcr.io/${{ github.repository_owner }}
-          - **Tags:** Each plugin is tagged with its version and `latest`
-          - **Authentication:** Use your GitHub token for private registries
-
-          ---
-
-          🤖 *Generated automatically by [Cola Plugin Action](https://github.com/criteo/cola-plugin-action)*
-          EOF
-
-      - name: Create GitHub Release
-        if: ${{ !env.ACT }}  # Skip when running with act locally
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: release-${{ github.run_number }}
-          name: Plugin Release ${{ github.run_number }}
-          body_path: release-notes.md
-          files: build/packages/*.pkg
-          draft: false
-          prerelease: false
-          fail_on_unmatched_files: false  # Don't fail if some files are missing
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true  # Don't fail if release already exists
-
-      - name: Check release status
-        if: steps.package.outcome == 'failure'
-        run: |
-          echo "⚠️  Release creation had issues, but this may be expected if versions already exist"
-          echo "This is not necessarily an error - check the logs above for details"
+          github-token: ${{ secrets.GITHUB_TOKEN }}  # Creates individual releases per plugin
 
       - name: Summary
         run: |
           echo "## ✅ Release Completed Successfully" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📦 Published Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Individual Plugin Releases" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Each plugin has been released with tag format: \`<plugin-name>-<version>\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Packages:** ${{ steps.package.outputs.packaged-artifacts }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -207,10 +134,10 @@ jobs:
           echo "oras pull ghcr.io/${{ github.repository_owner }}/<plugin-name>:latest" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "> **Note:** Versions already in OCI registry or GitHub Releases are automatically skipped (not an error)" >> $GITHUB_STEP_SUMMARY
+          echo "> **Note:** Existing releases and OCI versions are automatically skipped" >> $GITHUB_STEP_SUMMARY
 
   # ============================================================================
-  # Cleanup Job - Clean up old artifacts and preview documentation
+  # Cleanup Job - Clean up old workflow runs and artifacts
   # ============================================================================
   cleanup:
     name: Cleanup Old Artifacts

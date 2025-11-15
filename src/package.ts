@@ -4,7 +4,7 @@ import * as path from 'path';
 import { logger } from './utils/logger';
 import { findPackageDirectories, readManifest } from './utils/manifest';
 import {
-  createArchive,
+  createZip,
   generateChecksum,
   saveChecksumFile,
   formatBytes,
@@ -13,7 +13,7 @@ import {
 import { PackagedPackage } from './types/manifest';
 
 /**
- * Create packages archives (ZIP or tar.gz)
+ * Create packages archives (ZIP format)
  */
 
 export interface PackageOptions {
@@ -62,13 +62,12 @@ export async function createPackages(options: PackageOptions): Promise<PackageRe
       logger.info(`Package: ${manifest.pkgName}`);
       logger.info(`Version: ${manifest.version}`);
 
-      // Create archive name: {pkgName}-{version}.{format}
-      const extension = format === 'tar.gz' ? '.tar.gz' : '.zip';
-      const archiveName = `${manifest.pkgName}-${manifest.version}${extension}`;
+      // Create archive name: {pkgName}-{version}.zip
+      const archiveName = `${manifest.pkgName}-${manifest.version}.zip`;
       const archivePath = path.join(outputDirectory, archiveName);
 
-      // Create archive
-      await createArchive(packageDir, archivePath, packageName, format);
+      // Create ZIP archive
+      await createZip(packageDir, archivePath, packageName);
 
       // Generate checksum
       const checksum = await generateChecksum(archivePath);

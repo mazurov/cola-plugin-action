@@ -134,9 +134,9 @@ export class GitHubClient {
 
     for (const release of releases) {
       for (const asset of release.assets) {
-        // Match plugin archives: {plugin-name}-{version}.tar.gz (not .sha256 files)
-        if (asset.name.endsWith('.tar.gz') && !asset.name.endsWith('.sha256.tar.gz')) {
-          const match = asset.name.match(/^(.+)-(\d+\.\d+\.\d+.*)\.tar\.gz$/);
+        // Match plugin archives: {plugin-name}-{version}.zip (not .sha256 files)
+        if (asset.name.endsWith('.zip') && !asset.name.endsWith('.sha256.zip')) {
+          const match = asset.name.match(/^(.+)-(\d+\.\d+\.\d+.*)\.zip$/);
           if (match) {
             const pluginName = match[1];
             if (!pluginAssets.has(pluginName)) {

@@ -129,7 +129,7 @@ export function sanitizeName(name: string): string {
 export function parsePackageArchiveName(
   filename: string
 ): { name: string; version: string } | null {
-  const basename = filename.replace('.tar.gz', '');
+  const basename = filename.replace('.zip', '');
 
   // Match pattern: package-name-version
   const match = basename.match(/^(.+)-(\d+\.\d+\.\d+.*)$/);

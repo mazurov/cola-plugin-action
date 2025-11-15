@@ -174,6 +174,8 @@ async function createOrphanTagWithPluginContent(
   remoteUrl: string
 ): Promise<void> {
   // Create temporary directory for git operations
+  // Structure: tempDir/<plugin-folder>/{plugin content}
+  // This allows adding README.md to tempDir root later
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'plugin-release-'));
 
   try {
@@ -184,20 +186,13 @@ async function createOrphanTagWithPluginContent(
     await exec.exec('git', ['config', 'user.name', 'Cola Plugin Action'], { cwd: tempDir });
     await exec.exec('git', ['config', 'user.email', 'action@github.com'], { cwd: tempDir });
 
-    // Copy plugin content to temp directory
-    logger.info(`Copying plugin content from ${pluginDir}`);
-    const items = await fs.readdir(pluginDir);
-    for (const item of items) {
-      const srcPath = path.join(pluginDir, item);
-      const destPath = path.join(tempDir, item);
-
-      const stats = await fs.stat(srcPath);
-      if (stats.isDirectory()) {
-        await fs.cp(srcPath, destPath, { recursive: true });
-      } else {
-        await fs.copyFile(srcPath, destPath);
-      }
-    }
+    // Copy plugin directory (with folder structure) to temp directory
+    // This creates: tempDir/<plugin-folder-name>/{content}
+    // Later we can add README.md to tempDir root
+    logger.info(`Copying plugin directory from ${pluginDir}`);
+    const pluginFolderName = path.basename(pluginDir);
+    const destPluginDir = path.join(tempDir, pluginFolderName);
+    await fs.cp(pluginDir, destPluginDir, { recursive: true });
 
     // Create orphan commit
     await exec.exec('git', ['add', '-A'], { cwd: tempDir });

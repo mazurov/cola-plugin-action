@@ -18,7 +18,7 @@ async function run(): Promise<void> {
     const ociUsername = core.getInput('oci-username');
     const ociToken = core.getInput('oci-token');
 
-    logger.header('Cola Plugin Action');
+    logger.header('Cola Package Action');
     logger.info(`Packages Directory: ${packagesDirectory}`);
     logger.info(`Validate Only: ${validateOnly}`);
     logger.info(`Package Format: ${packageFormat}`);

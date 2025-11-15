@@ -1,6 +1,5 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as crypto from 'crypto';
 import { logger } from './logger';
 
 /**
@@ -38,25 +37,6 @@ export async function createZip(
   }
 }
 
-export async function generateChecksum(filePath: string): Promise<string> {
-  const hash = crypto.createHash('sha256');
-  const fileBuffer = await fs.readFile(filePath);
-  hash.update(fileBuffer);
-  return hash.digest('hex');
-}
-
-export async function verifyChecksum(filePath: string, expectedChecksum: string): Promise<boolean> {
-  const actualChecksum = await generateChecksum(filePath);
-  return actualChecksum === expectedChecksum;
-}
-
-export async function saveChecksumFile(filePath: string, checksum: string): Promise<void> {
-  const checksumPath = `${filePath}.sha256`;
-  const content = `${checksum}  ${path.basename(filePath)}\n`;
-  await fs.writeFile(checksumPath, content, 'utf-8');
-  logger.success(`Checksum saved to: ${checksumPath}`);
-}
-
 export function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
 
@@ -68,7 +48,7 @@ export function formatBytes(bytes: number): string {
 }
 
 export function parsePluginArchiveName(filename: string): { name: string; version: string } | null {
-  const basename = filename.replace('.zip', '');
+  const basename = filename.replace('.pkg', '');
 
   // Match pattern: plugin-name-version
   const match = basename.match(/^(.+)-(\d+\.\d+\.\d+.*)$/);

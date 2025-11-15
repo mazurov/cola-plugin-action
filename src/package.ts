@@ -3,13 +3,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { logger } from './utils/logger';
 import { findPackageDirectories, readManifest } from './utils/manifest';
-import {
-  createZip,
-  generateChecksum,
-  saveChecksumFile,
-  formatBytes,
-  ArchiveFormat,
-} from './utils/archive';
+import { createZip, formatBytes, ArchiveFormat } from './utils/archive';
 import { PackagedPackage } from './types/manifest';
 
 /**
@@ -62,29 +56,23 @@ export async function createPackages(options: PackageOptions): Promise<PackageRe
       logger.info(`Package: ${manifest.pkgName}`);
       logger.info(`Version: ${manifest.version}`);
 
-      // Create archive name: {pkgName}-{version}.zip
-      const archiveName = `${manifest.pkgName}-${manifest.version}.zip`;
+      // Create archive name: {pkgName}-{version}.pkg
+      const archiveName = `${manifest.pkgName}-${manifest.version}.pkg`;
       const archivePath = path.join(outputDirectory, archiveName);
 
       // Create ZIP archive
       await createZip(packageDir, archivePath, packageName);
-
-      // Generate checksum
-      const checksum = await generateChecksum(archivePath);
-      await saveChecksumFile(archivePath, checksum);
 
       // Get file size
       const stats = await fs.stat(archivePath);
 
       logger.success(`✅ Packaged: ${archiveName}`);
       logger.info(`   Size: ${formatBytes(stats.size)}`);
-      logger.info(`   SHA256: ${checksum}`);
 
       packages.push({
         name: manifest.pkgName,
         version: manifest.version,
         archivePath,
-        checksum,
         size: stats.size,
       });
     } catch (error) {
@@ -109,7 +97,6 @@ export async function createPackages(options: PackageOptions): Promise<PackageRe
     name: pkg.name,
     version: pkg.version,
     archive: path.basename(pkg.archivePath),
-    checksum: pkg.checksum,
     size: pkg.size,
   }));
 

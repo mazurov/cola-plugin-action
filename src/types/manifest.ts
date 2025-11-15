@@ -50,6 +50,5 @@ export interface PackagedPackage {
   name: string;
   version: string;
   archivePath: string;
-  checksum: string;
   size: number;
 }

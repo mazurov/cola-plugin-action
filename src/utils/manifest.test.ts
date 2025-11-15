@@ -114,7 +114,7 @@ describe('sanitizeName', () => {
 
 describe('parsePackageArchiveName', () => {
   it('should parse valid archive name', () => {
-    const result = parsePackageArchiveName('test-plugin-1.0.0.zip');
+    const result = parsePackageArchiveName('test-plugin-1.0.0.pkg');
 
     expect(result).toEqual({
       name: 'test-plugin',
@@ -123,7 +123,7 @@ describe('parsePackageArchiveName', () => {
   });
 
   it('should parse archive with pre-release version', () => {
-    const result = parsePackageArchiveName('test-plugin-1.0.0-beta.1.zip');
+    const result = parsePackageArchiveName('test-plugin-1.0.0-beta.1.pkg');
 
     expect(result).toEqual({
       name: 'test-plugin',
@@ -132,7 +132,7 @@ describe('parsePackageArchiveName', () => {
   });
 
   it('should handle plugin names with hyphens', () => {
-    const result = parsePackageArchiveName('my-test-plugin-2.1.3.zip');
+    const result = parsePackageArchiveName('my-test-plugin-2.1.3.pkg');
 
     expect(result).toEqual({
       name: 'my-test-plugin',
@@ -141,7 +141,7 @@ describe('parsePackageArchiveName', () => {
   });
 
   it('should return null for invalid format', () => {
-    expect(parsePackageArchiveName('invalid.zip')).toBeNull();
-    expect(parsePackageArchiveName('no-version.zip')).toBeNull();
+    expect(parsePackageArchiveName('invalid.pkg')).toBeNull();
+    expect(parsePackageArchiveName('no-version.pkg')).toBeNull();
   });
 });

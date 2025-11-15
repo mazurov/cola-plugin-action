@@ -2,14 +2,13 @@ import * as github from '@actions/github';
 import * as exec from '@actions/exec';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as os from 'os';
 import { logger } from './utils/logger';
 import { PackagedPackage } from './types/manifest';
 
 /**
  * GitHub Release Management
  * Creates individual releases for each plugin version
- * Each release tag contains only the plugin directory content (orphan commit)
+ * Each release tag points to the current commit
  */
 
 export interface ReleaseOptions {
@@ -24,7 +23,7 @@ export interface ReleaseResult {
 }
 
 export async function createPluginReleases(options: ReleaseOptions): Promise<ReleaseResult> {
-  logger.header('Creating GitHub Releases with Plugin-Only Content');
+  logger.header('Creating GitHub Releases for Plugins');
 
   const { packages, githubToken, repository } = options;
 
@@ -58,27 +57,11 @@ export async function createPluginReleases(options: ReleaseOptions): Promise<Rel
         continue;
       }
 
-      // Use the source directory from the package
-      const pluginDir = pkg.sourceDirectory;
-
-      // Verify plugin directory exists
-      let pluginExists = false;
-      try {
-        await fs.access(pluginDir);
-        pluginExists = true;
-      } catch {
-        pluginExists = false;
-      }
-
-      if (!pluginExists) {
-        throw new Error(`Plugin directory not found: ${pluginDir}`);
-      }
-
-      logger.info(`Creating orphan commit for: ${tagName}`);
-      logger.info(`Plugin directory: ${pluginDir}`);
-
-      // Create orphan commit with plugin content only
-      await createOrphanTagWithPluginContent(pluginDir, tagName, pkg, remoteUrl);
+      // Create git tag on current commit
+      logger.info(`Creating tag: ${tagName}`);
+      await exec.exec('git', ['tag', tagName]);
+      await exec.exec('git', ['push', remoteUrl, tagName]);
+      logger.success(`✅ Tag ${tagName} created and pushed`);
 
       // Read package file for release asset
       const packageFileName = path.basename(pkg.archivePath);
@@ -164,57 +147,6 @@ async function checkTagExists(
     }
     // Re-throw other errors
     throw error;
-  }
-}
-
-async function createOrphanTagWithPluginContent(
-  pluginDir: string,
-  tagName: string,
-  pkg: PackagedPackage,
-  remoteUrl: string
-): Promise<void> {
-  // Create temporary directory for git operations
-  // Structure: tempDir/<plugin-folder>/{plugin content}
-  // This allows adding README.md to tempDir root later
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'plugin-release-'));
-
-  try {
-    logger.info(`Temporary directory: ${tempDir}`);
-
-    // Initialize new git repository
-    await exec.exec('git', ['init'], { cwd: tempDir });
-    await exec.exec('git', ['config', 'user.name', 'Cola Plugin Action'], { cwd: tempDir });
-    await exec.exec('git', ['config', 'user.email', 'action@github.com'], { cwd: tempDir });
-
-    // Copy plugin directory (with folder structure) to temp directory
-    // This creates: tempDir/<plugin-folder-name>/{content}
-    // Later we can add README.md to tempDir root
-    logger.info(`Copying plugin directory from ${pluginDir}`);
-    const pluginFolderName = path.basename(pluginDir);
-    const destPluginDir = path.join(tempDir, pluginFolderName);
-    await fs.cp(pluginDir, destPluginDir, { recursive: true });
-
-    // Create orphan commit
-    await exec.exec('git', ['add', '-A'], { cwd: tempDir });
-    await exec.exec(
-      'git',
-      [
-        'commit',
-        '-m',
-        `Release ${pkg.name} v${pkg.version}\n\nPackage: ${pkg.name}\nVersion: ${pkg.version}\nSize: ${formatBytes(pkg.size)}`,
-      ],
-      { cwd: tempDir }
-    );
-
-    // Create and push tag
-    await exec.exec('git', ['tag', tagName], { cwd: tempDir });
-    await exec.exec('git', ['remote', 'add', 'origin', remoteUrl], { cwd: tempDir });
-    await exec.exec('git', ['push', 'origin', tagName], { cwd: tempDir });
-
-    logger.success(`✅ Tag ${tagName} created and pushed`);
-  } finally {
-    // Cleanup
-    await fs.rm(tempDir, { recursive: true, force: true });
   }
 }
 

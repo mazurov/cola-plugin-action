@@ -2,7 +2,7 @@ import { PackagedPackage } from './types/manifest';
 /**
  * GitHub Release Management
  * Creates individual releases for each plugin version
- * Each release tag contains only the plugin directory content (orphan commit)
+ * Each release tag points to the current commit
  */
 export interface ReleaseOptions {
     packages: PackagedPackage[];

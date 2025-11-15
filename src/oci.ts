@@ -14,13 +14,12 @@ export interface OCIPushOptions {
   registry: string;
   username: string;
   token: string;
-  forceRelease?: boolean; // Delete existing OCI tags before pushing new ones
+  forceRelease?: boolean; // Override existing OCI tags (force push)
 }
 
 export interface OCIPushResult {
   pushedCount: number;
   skippedCount: number;
-  deletedCount: number;
 }
 
 export async function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult> {
@@ -50,7 +49,6 @@ export async function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult>
 
   let pushedCount = 0;
   let skippedCount = 0;
-  let deletedCount = 0;
 
   // Push each .pkg file
   for (const pkgFile of pkgFiles) {
@@ -80,13 +78,11 @@ export async function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult>
 
       if (exists) {
         if (forceRelease) {
-          // Delete existing OCI tag
+          // Override existing OCI tag (force push)
           logger.warning(
-            `Version ${version} already exists in registry, deleting due to force-release`
+            `Version ${version} already exists in registry, will override due to force-release`
           );
-          await deleteOCITag(ociRef, version);
-          deletedCount++;
-          logger.info(`Will push new version: ${ociRef}:${version}`);
+          logger.info(`Overriding: ${ociRef}:${version}`);
         } else {
           logger.warning(`Version ${version} already exists in registry: ${ociRef}:${version}`);
           logger.warning('Skipping push (already published)');
@@ -129,12 +125,7 @@ export async function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult>
   logger.header('OCI Push Summary');
   logger.info(`Packages pushed: ${pushedCount}`);
   logger.info(`Packages skipped: ${skippedCount}`);
-  logger.info(`Packages deleted: ${deletedCount}`);
   logger.info(`Total processed: ${pushedCount + skippedCount}`);
-
-  if (deletedCount > 0) {
-    logger.warning(`Deleted ${deletedCount} existing version(s) due to force-release`);
-  }
 
   if (pushedCount === 0 && skippedCount === 0) {
     throw new Error('No packages were processed');
@@ -144,8 +135,11 @@ export async function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult>
   if (skippedCount > 0 && !forceRelease) {
     logger.info('Note: Versions already in registry were skipped (not an error)');
   }
+  if (forceRelease && pushedCount > 0) {
+    logger.info('Note: Existing versions were overridden due to force-release');
+  }
 
-  return { pushedCount, skippedCount, deletedCount };
+  return { pushedCount, skippedCount };
 }
 
 async function ensureOrasInstalled(): Promise<void> {
@@ -234,34 +228,6 @@ async function checkOCITagExists(ociRef: string, tag: string): Promise<boolean> 
       `Error checking OCI tag existence: ${error instanceof Error ? error.message : String(error)}`
     );
     return false;
-  }
-}
-
-async function deleteOCITag(ociRef: string, tag: string): Promise<void> {
-  logger.info(`Deleting OCI tag: ${ociRef}:${tag}`);
-
-  try {
-    // ORAS doesn't have a direct delete command for tags
-    // We need to delete the manifest using the API or oras CLI
-    // For now, we'll use 'oras manifest delete' if available
-    const exitCode = await exec.exec(
-      'oras',
-      ['manifest', 'delete', `${ociRef}:${tag}`, '--force'],
-      {
-        ignoreReturnCode: true,
-      }
-    );
-
-    if (exitCode === 0) {
-      logger.success(`✅ OCI tag deleted: ${ociRef}:${tag}`);
-    } else {
-      logger.warning(`Failed to delete OCI tag (exit code ${exitCode}), will overwrite on push`);
-    }
-  } catch (error) {
-    logger.warning(
-      `Failed to delete OCI tag: ${error instanceof Error ? error.message : String(error)}`
-    );
-    logger.info('Tag will be overwritten on push');
   }
 }
 

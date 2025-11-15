@@ -44,7 +44,7 @@ export async function createPluginReleases(options: ReleaseOptions): Promise<Rel
   const remoteUrl = `https://x-access-token:${githubToken}@github.com/${owner}/${repo}.git`;
 
   for (const pkg of packages) {
-    const tagName = `${pkg.name}-${pkg.version}`;
+    const tagName = `package_${pkg.name}_${pkg.version}`;
     const releaseName = `${pkg.name} v${pkg.version}`;
 
     logger.startGroup(`Processing: ${tagName}`);

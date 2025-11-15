@@ -32842,7 +32842,6 @@ async function pushToOCI(options) {
     logger_1.logger.info(`Found ${pkgFiles.length} .pkg file(s) to push`);
     let pushedCount = 0;
     let skippedCount = 0;
-    let deletedCount = 0;
     // Push each .pkg file
     for (const pkgFile of pkgFiles) {
         const pkgPath = path.join(outputDirectory, pkgFile);
@@ -32865,11 +32864,9 @@ async function pushToOCI(options) {
             const exists = await checkOCITagExists(ociRef, version);
             if (exists) {
                 if (forceRelease) {
-                    // Delete existing OCI tag
-                    logger_1.logger.warning(`Version ${version} already exists in registry, deleting due to force-release`);
-                    await deleteOCITag(ociRef, version);
-                    deletedCount++;
-                    logger_1.logger.info(`Will push new version: ${ociRef}:${version}`);
+                    // Override existing OCI tag (force push)
+                    logger_1.logger.warning(`Version ${version} already exists in registry, will override due to force-release`);
+                    logger_1.logger.info(`Overriding: ${ociRef}:${version}`);
                 }
                 else {
                     logger_1.logger.warning(`Version ${version} already exists in registry: ${ociRef}:${version}`);
@@ -32907,11 +32904,7 @@ async function pushToOCI(options) {
     logger_1.logger.header('OCI Push Summary');
     logger_1.logger.info(`Packages pushed: ${pushedCount}`);
     logger_1.logger.info(`Packages skipped: ${skippedCount}`);
-    logger_1.logger.info(`Packages deleted: ${deletedCount}`);
     logger_1.logger.info(`Total processed: ${pushedCount + skippedCount}`);
-    if (deletedCount > 0) {
-        logger_1.logger.warning(`Deleted ${deletedCount} existing version(s) due to force-release`);
-    }
     if (pushedCount === 0 && skippedCount === 0) {
         throw new Error('No packages were processed');
     }
@@ -32919,7 +32912,10 @@ async function pushToOCI(options) {
     if (skippedCount > 0 && !forceRelease) {
         logger_1.logger.info('Note: Versions already in registry were skipped (not an error)');
     }
-    return { pushedCount, skippedCount, deletedCount };
+    if (forceRelease && pushedCount > 0) {
+        logger_1.logger.info('Note: Existing versions were overridden due to force-release');
+    }
+    return { pushedCount, skippedCount };
 }
 async function ensureOrasInstalled() {
     try {
@@ -32990,27 +32986,6 @@ async function checkOCITagExists(ociRef, tag) {
     catch (error) {
         logger_1.logger.error(`Error checking OCI tag existence: ${error instanceof Error ? error.message : String(error)}`);
         return false;
-    }
-}
-async function deleteOCITag(ociRef, tag) {
-    logger_1.logger.info(`Deleting OCI tag: ${ociRef}:${tag}`);
-    try {
-        // ORAS doesn't have a direct delete command for tags
-        // We need to delete the manifest using the API or oras CLI
-        // For now, we'll use 'oras manifest delete' if available
-        const exitCode = await exec.exec('oras', ['manifest', 'delete', `${ociRef}:${tag}`, '--force'], {
-            ignoreReturnCode: true,
-        });
-        if (exitCode === 0) {
-            logger_1.logger.success(`✅ OCI tag deleted: ${ociRef}:${tag}`);
-        }
-        else {
-            logger_1.logger.warning(`Failed to delete OCI tag (exit code ${exitCode}), will overwrite on push`);
-        }
-    }
-    catch (error) {
-        logger_1.logger.warning(`Failed to delete OCI tag: ${error instanceof Error ? error.message : String(error)}`);
-        logger_1.logger.info('Tag will be overwritten on push');
     }
 }
 async function orasPush(ociRef, tag, pkgPath, annotations) {
@@ -33208,7 +33183,7 @@ async function createPluginReleases(options) {
     // Get current git remote URL
     const remoteUrl = `https://x-access-token:${githubToken}@github.com/${owner}/${repo}.git`;
     for (const pkg of packages) {
-        const tagName = `${pkg.name}-${pkg.version}`;
+        const tagName = `package_${pkg.name}_${pkg.version}`;
         const releaseName = `${pkg.name} v${pkg.version}`;
         logger_1.logger.startGroup(`Processing: ${tagName}`);
         try {

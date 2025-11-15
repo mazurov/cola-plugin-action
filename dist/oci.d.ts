@@ -11,6 +11,5 @@ export interface OCIPushOptions {
 export interface OCIPushResult {
     pushedCount: number;
     skippedCount: number;
-    deletedCount: number;
 }
 export declare function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult>;

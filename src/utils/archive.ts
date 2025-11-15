@@ -66,18 +66,20 @@ export async function createTarGz(
 export async function createZip(
   sourceDir: string,
   outputPath: string,
-  baseName: string
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _baseName: string // Kept for signature consistency with createTarGz, but not used for flat ZIP structure
 ): Promise<void> {
   logger.info(`Creating ZIP archive: ${outputPath}`);
 
   try {
     const { exec } = await import('@actions/exec');
-    const sourceParent = path.dirname(sourceDir);
     const absOutputPath = path.resolve(outputPath);
 
-    // Create zip using system zip command (available on all GitHub runners)
-    await exec('zip', ['-r', '-q', absOutputPath, baseName], {
-      cwd: sourceParent,
+    // Create zip with contents directly (no root directory wrapper)
+    // Using -j option would flatten, but we want to preserve subdirectory structure
+    // So we cd into the source directory and zip everything with relative paths
+    await exec('zip', ['-r', '-q', absOutputPath, '.'], {
+      cwd: sourceDir,
     });
 
     const stats = await fs.stat(outputPath);

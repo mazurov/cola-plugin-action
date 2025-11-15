@@ -45,12 +45,12 @@ async function run(): Promise<void> {
     const outputDirectory = 'build/packages';
 
     // Determine what to create based on package format
-    // Note: tar.gz is created automatically when pushing to OCI registry
     const needsZipPackages = packageFormat === 'zip' || packageFormat === 'both';
     const needsOciPush = (packageFormat === 'oci' || packageFormat === 'both') && ociRegistry;
 
-    // Create ZIP archives for GitHub Releases/Artifacts (cross-platform compatibility)
-    if (needsZipPackages) {
+    // Create ZIP archives for GitHub Releases/Artifacts AND for OCI registry push
+    // ZIP archives are needed for both artifact uploads and OCI registry pushes
+    if (needsZipPackages || needsOciPush) {
       await createPackages({
         packagesDirectory,
         outputDirectory,
@@ -59,14 +59,14 @@ async function run(): Promise<void> {
       packagesCreated = true;
     }
 
-    // Step 3: Push to OCI registry (creates tar.gz internally)
+    // Step 3: Push to OCI registry (uses ZIP files created in previous step)
     if (needsOciPush) {
       if (!ociUsername || !ociToken) {
         throw new Error('OCI registry credentials required (oci-username and oci-token)');
       }
 
       await pushToOCI({
-        packagesDirectory,
+        outputDirectory,
         registry: ociRegistry,
         username: ociUsername,
         token: ociToken,

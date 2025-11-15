@@ -3,15 +3,14 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 import { logger } from './utils/logger';
-import { findPackageDirectories, readManifest, sanitizeName } from './utils/manifest';
-import { createTarGz } from './utils/archive';
+import { sanitizeName } from './utils/manifest';
 
 /**
  * Push plugins to OCI registry using ORAS
  */
 
 export interface OCIPushOptions {
-  packagesDirectory: string;
+  outputDirectory: string; // Directory containing the generated ZIP files
   registry: string;
   username: string;
   token: string;
@@ -25,8 +24,9 @@ export interface OCIPushResult {
 export async function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult> {
   logger.header('Pushing Packages to OCI Registry');
 
-  const { packagesDirectory, registry, username, token } = options;
+  const { outputDirectory, registry, username, token } = options;
 
+  logger.info(`Output Directory: ${outputDirectory}`);
   logger.info(`Registry: ${registry}`);
   logger.info(`Username: ${username}`);
 
@@ -36,33 +36,39 @@ export async function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult>
   // Login to OCI registry
   await orasLogin(registry, username, token);
 
-  // Find all package directories
-  const packageDirs = await findPackageDirectories(packagesDirectory);
+  // Find all ZIP files in the output directory
+  const files = await fs.readdir(outputDirectory);
+  const zipFiles = files.filter(file => file.endsWith('.zip'));
 
-  if (packageDirs.length === 0) {
-    throw new Error(`No packages found in ${packagesDirectory}`);
+  if (zipFiles.length === 0) {
+    throw new Error(`No ZIP files found in ${outputDirectory}`);
   }
 
-  logger.info(`Found ${packageDirs.length} package(s) to push`);
+  logger.info(`Found ${zipFiles.length} ZIP file(s) to push`);
 
   let pushedCount = 0;
   let skippedCount = 0;
 
-  // Push each package
-  for (const packageDir of packageDirs) {
-    const folderName = path.basename(packageDir);
+  // Push each ZIP file
+  for (const zipFile of zipFiles) {
+    const zipPath = path.join(outputDirectory, zipFile);
 
-    logger.startGroup(`Processing: ${folderName}`);
+    logger.startGroup(`Processing: ${zipFile}`);
 
     try {
-      // Read manifest
-      const manifest = await readManifest(packageDir);
+      // Parse package name and version from filename: {pkgName}-{version}.zip
+      const match = zipFile.match(/^(.+)-(\d+\.\d+\.\d+.*?)\.zip$/);
+      if (!match) {
+        logger.warning(`Skipping ${zipFile}: Invalid filename format (expected: name-version.zip)`);
+        skippedCount++;
+        continue;
+      }
 
-      const safeName = sanitizeName(manifest.pkgName);
+      const [, pkgName, version] = match;
+      const safeName = sanitizeName(pkgName);
       const ociRef = `${registry}/${safeName}`;
-      const version = manifest.version;
 
-      logger.info(`Package: ${manifest.pkgName}`);
+      logger.info(`Package: ${pkgName}`);
       logger.info(`Version: ${version}`);
       logger.info(`OCI Reference: ${ociRef}:${version}`);
 
@@ -78,41 +84,24 @@ export async function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult>
 
       logger.info(`Version ${version} not found in registry, will push...`);
 
-      // Create temporary archive
-      const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'oci-push-'));
-      const tempArchive = path.join(tempDir, `${manifest.pkgName}.tar.gz`);
+      // Push to OCI registry
+      const annotations = [
+        `org.opencontainers.image.title=${pkgName}`,
+        `org.opencontainers.image.version=${version}`,
+      ];
 
-      try {
-        await createTarGz(packageDir, tempArchive, manifest.pkgName);
+      await orasPush(ociRef, version, zipPath, annotations);
 
-        // Push to OCI registry
-        const annotations = [
-          `org.opencontainers.image.title=${manifest.pkgName}`,
-          `org.opencontainers.image.version=${version}`,
-        ];
+      // Tag as latest
+      await orasTag(ociRef, version, 'latest');
 
-        if (manifest._metadata?.description) {
-          annotations.push(
-            `org.opencontainers.image.description=${manifest._metadata.description}`
-          );
-        }
+      logger.success(`✅ Pushed: ${ociRef}:${version}`);
+      logger.success(`✅ Tagged: ${ociRef}:latest`);
 
-        await orasPush(ociRef, version, tempArchive, annotations);
-
-        // Tag as latest
-        await orasTag(ociRef, version, 'latest');
-
-        logger.success(`✅ Pushed: ${ociRef}:${version}`);
-        logger.success(`✅ Tagged: ${ociRef}:latest`);
-
-        pushedCount++;
-      } finally {
-        // Clean up temporary directory
-        await fs.rm(tempDir, { recursive: true, force: true });
-      }
+      pushedCount++;
     } catch (error) {
       logger.error(
-        `Failed to push ${folderName} folder: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to push ${zipFile}: ${error instanceof Error ? error.message : String(error)}`
       );
       throw error;
     } finally {
@@ -231,27 +220,23 @@ async function checkOCITagExists(ociRef: string, tag: string): Promise<boolean> 
 async function orasPush(
   ociRef: string,
   tag: string,
-  archivePath: string,
+  zipPath: string,
   annotations: string[]
 ): Promise<void> {
-  const archiveDir = path.dirname(archivePath);
-  const archiveFileName = path.basename(archivePath);
+  const zipDir = path.dirname(zipPath);
+  const zipFileName = path.basename(zipPath);
 
-  const args = [
-    'push',
-    `${ociRef}:${tag}`,
-    `${archiveFileName}:application/vnd.oci.image.layer.v1.tar+gzip`,
-  ];
+  const args = ['push', `${ociRef}:${tag}`, `${zipFileName}:application/zip`];
 
   for (const annotation of annotations) {
     args.push('--annotation', annotation);
   }
 
   logger.info(`Command: oras ${args.join(' ')}`);
-  logger.info(`Working directory: ${archiveDir}`);
+  logger.info(`Working directory: ${zipDir}`);
 
   await exec.exec('oras', args, {
-    cwd: archiveDir,
+    cwd: zipDir,
   });
 }
 

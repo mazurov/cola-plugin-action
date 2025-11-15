@@ -32748,7 +32748,6 @@ async function run() {
             }
             await (0, release_1.createPluginReleases)({
                 packages: packageResult.packages,
-                packagesDirectory,
                 githubToken,
                 repository: githubRepository,
             });
@@ -33077,6 +33076,7 @@ async function createPackages(options) {
                 version: manifest.version,
                 archivePath,
                 size: stats.size,
+                sourceDirectory: packageDir,
             });
         }
         catch (error) {
@@ -33155,7 +33155,7 @@ const os = __importStar(__nccwpck_require__(857));
 const logger_1 = __nccwpck_require__(7893);
 async function createPluginReleases(options) {
     logger_1.logger.header('Creating GitHub Releases with Plugin-Only Content');
-    const { packages, packagesDirectory, githubToken, repository } = options;
+    const { packages, githubToken, repository } = options;
     const [owner, repo] = repository.split('/');
     if (!owner || !repo) {
         throw new Error(`Invalid repository format: ${repository}. Expected: owner/repo`);
@@ -33178,8 +33178,9 @@ async function createPluginReleases(options) {
                 logger_1.logger.endGroup();
                 continue;
             }
-            // Find plugin directory
-            const pluginDir = path.join(packagesDirectory, pkg.name);
+            // Use the source directory from the package
+            const pluginDir = pkg.sourceDirectory;
+            // Verify plugin directory exists
             let pluginExists = false;
             try {
                 await fs.access(pluginDir);

@@ -51,4 +51,5 @@ export interface PackagedPackage {
   version: string;
   archivePath: string;
   size: number;
+  sourceDirectory: string; // Path to the original plugin directory
 }

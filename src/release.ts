@@ -14,7 +14,6 @@ import { PackagedPackage } from './types/manifest';
 
 export interface ReleaseOptions {
   packages: PackagedPackage[];
-  packagesDirectory: string;
   githubToken: string;
   repository: string; // format: "owner/repo"
 }
@@ -27,7 +26,7 @@ export interface ReleaseResult {
 export async function createPluginReleases(options: ReleaseOptions): Promise<ReleaseResult> {
   logger.header('Creating GitHub Releases with Plugin-Only Content');
 
-  const { packages, packagesDirectory, githubToken, repository } = options;
+  const { packages, githubToken, repository } = options;
 
   const [owner, repo] = repository.split('/');
   if (!owner || !repo) {
@@ -59,8 +58,10 @@ export async function createPluginReleases(options: ReleaseOptions): Promise<Rel
         continue;
       }
 
-      // Find plugin directory
-      const pluginDir = path.join(packagesDirectory, pkg.name);
+      // Use the source directory from the package
+      const pluginDir = pkg.sourceDirectory;
+
+      // Verify plugin directory exists
       let pluginExists = false;
       try {
         await fs.access(pluginDir);

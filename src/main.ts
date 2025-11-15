@@ -85,7 +85,6 @@ async function run(): Promise<void> {
 
       await createPluginReleases({
         packages: packageResult.packages,
-        packagesDirectory,
         githubToken,
         repository: githubRepository,
       });

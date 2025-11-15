@@ -6,7 +6,6 @@ import { PackagedPackage } from './types/manifest';
  */
 export interface ReleaseOptions {
     packages: PackagedPackage[];
-    packagesDirectory: string;
     githubToken: string;
     repository: string;
 }

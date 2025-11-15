@@ -74,6 +74,7 @@ export async function createPackages(options: PackageOptions): Promise<PackageRe
         version: manifest.version,
         archivePath,
         size: stats.size,
+        sourceDirectory: packageDir,
       });
     } catch (error) {
       logger.error(

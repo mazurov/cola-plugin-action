@@ -6,9 +6,11 @@ export interface OCIPushOptions {
     registry: string;
     username: string;
     token: string;
+    forceRelease?: boolean;
 }
 export interface OCIPushResult {
     pushedCount: number;
     skippedCount: number;
+    deletedCount: number;
 }
 export declare function pushToOCI(options: OCIPushOptions): Promise<OCIPushResult>;

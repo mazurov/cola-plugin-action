@@ -114,6 +114,7 @@ jobs:
           oci-username: ${{ github.actor }}
           oci-token: ${{ secrets.OCI_TOKEN }}
           github-token: ${{ secrets.GITHUB_TOKEN }}  # Creates individual releases per plugin
+          # force-release: 'true'  # Uncomment to force recreate releases (deletes existing releases/tags first)
 
       - name: Summary
         run: |

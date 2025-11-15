@@ -8,9 +8,11 @@ export interface ReleaseOptions {
     packages: PackagedPackage[];
     githubToken: string;
     repository: string;
+    forceRelease?: boolean;
 }
 export interface ReleaseResult {
     createdReleases: string[];
     skippedReleases: string[];
+    deletedReleases: string[];
 }
 export declare function createPluginReleases(options: ReleaseOptions): Promise<ReleaseResult>;

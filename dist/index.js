@@ -32695,6 +32695,7 @@ async function run() {
         const ociUsername = core.getInput('oci-username');
         const ociToken = core.getInput('oci-token');
         const githubToken = core.getInput('github-token');
+        const forceRelease = core.getInput('force-release') === 'true';
         const githubRepository = process.env.GITHUB_REPOSITORY || '';
         logger_1.logger.header('Cola Package Action');
         logger_1.logger.info(`Packages Directory: ${packagesDirectory}`);
@@ -32739,6 +32740,7 @@ async function run() {
                 registry: ociRegistry,
                 username: ociUsername,
                 token: ociToken,
+                forceRelease,
             });
         }
         // Step 4: Create GitHub Releases (one release per plugin)
@@ -32750,6 +32752,7 @@ async function run() {
                 packages: packageResult.packages,
                 githubToken,
                 repository: githubRepository,
+                forceRelease,
             });
         }
         // Final summary
@@ -32822,7 +32825,7 @@ const logger_1 = __nccwpck_require__(7893);
 const manifest_1 = __nccwpck_require__(3148);
 async function pushToOCI(options) {
     logger_1.logger.header('Pushing Packages to OCI Registry');
-    const { outputDirectory, registry, username, token } = options;
+    const { outputDirectory, registry, username, token, forceRelease = false } = options;
     logger_1.logger.info(`Output Directory: ${outputDirectory}`);
     logger_1.logger.info(`Registry: ${registry}`);
     logger_1.logger.info(`Username: ${username}`);
@@ -32839,6 +32842,7 @@ async function pushToOCI(options) {
     logger_1.logger.info(`Found ${pkgFiles.length} .pkg file(s) to push`);
     let pushedCount = 0;
     let skippedCount = 0;
+    let deletedCount = 0;
     // Push each .pkg file
     for (const pkgFile of pkgFiles) {
         const pkgPath = path.join(outputDirectory, pkgFile);
@@ -32860,12 +32864,23 @@ async function pushToOCI(options) {
             // Check if version already exists
             const exists = await checkOCITagExists(ociRef, version);
             if (exists) {
-                logger_1.logger.warning(`Version ${version} already exists in registry: ${ociRef}:${version}`);
-                logger_1.logger.warning('Skipping push (already published)');
-                skippedCount++;
-                continue;
+                if (forceRelease) {
+                    // Delete existing OCI tag
+                    logger_1.logger.warning(`Version ${version} already exists in registry, deleting due to force-release`);
+                    await deleteOCITag(ociRef, version);
+                    deletedCount++;
+                    logger_1.logger.info(`Will push new version: ${ociRef}:${version}`);
+                }
+                else {
+                    logger_1.logger.warning(`Version ${version} already exists in registry: ${ociRef}:${version}`);
+                    logger_1.logger.warning('Skipping push (already published)');
+                    skippedCount++;
+                    continue;
+                }
             }
-            logger_1.logger.info(`Version ${version} not found in registry, will push...`);
+            else {
+                logger_1.logger.info(`Version ${version} not found in registry, will push...`);
+            }
             // Push to OCI registry
             const annotations = [
                 `org.opencontainers.image.title=${pkgName}`,
@@ -32892,13 +32907,19 @@ async function pushToOCI(options) {
     logger_1.logger.header('OCI Push Summary');
     logger_1.logger.info(`Packages pushed: ${pushedCount}`);
     logger_1.logger.info(`Packages skipped: ${skippedCount}`);
+    logger_1.logger.info(`Packages deleted: ${deletedCount}`);
     logger_1.logger.info(`Total processed: ${pushedCount + skippedCount}`);
+    if (deletedCount > 0) {
+        logger_1.logger.warning(`Deleted ${deletedCount} existing version(s) due to force-release`);
+    }
     if (pushedCount === 0 && skippedCount === 0) {
         throw new Error('No packages were processed');
     }
     logger_1.logger.success('✅ OCI push completed successfully');
-    logger_1.logger.info('Note: Versions already in registry were skipped (not an error)');
-    return { pushedCount, skippedCount };
+    if (skippedCount > 0 && !forceRelease) {
+        logger_1.logger.info('Note: Versions already in registry were skipped (not an error)');
+    }
+    return { pushedCount, skippedCount, deletedCount };
 }
 async function ensureOrasInstalled() {
     try {
@@ -32969,6 +32990,27 @@ async function checkOCITagExists(ociRef, tag) {
     catch (error) {
         logger_1.logger.error(`Error checking OCI tag existence: ${error instanceof Error ? error.message : String(error)}`);
         return false;
+    }
+}
+async function deleteOCITag(ociRef, tag) {
+    logger_1.logger.info(`Deleting OCI tag: ${ociRef}:${tag}`);
+    try {
+        // ORAS doesn't have a direct delete command for tags
+        // We need to delete the manifest using the API or oras CLI
+        // For now, we'll use 'oras manifest delete' if available
+        const exitCode = await exec.exec('oras', ['manifest', 'delete', `${ociRef}:${tag}`, '--force'], {
+            ignoreReturnCode: true,
+        });
+        if (exitCode === 0) {
+            logger_1.logger.success(`✅ OCI tag deleted: ${ociRef}:${tag}`);
+        }
+        else {
+            logger_1.logger.warning(`Failed to delete OCI tag (exit code ${exitCode}), will overwrite on push`);
+        }
+    }
+    catch (error) {
+        logger_1.logger.warning(`Failed to delete OCI tag: ${error instanceof Error ? error.message : String(error)}`);
+        logger_1.logger.info('Tag will be overwritten on push');
     }
 }
 async function orasPush(ociRef, tag, pkgPath, annotations) {
@@ -33154,7 +33196,7 @@ const path = __importStar(__nccwpck_require__(6928));
 const logger_1 = __nccwpck_require__(7893);
 async function createPluginReleases(options) {
     logger_1.logger.header('Creating GitHub Releases for Plugins');
-    const { packages, githubToken, repository } = options;
+    const { packages, githubToken, repository, forceRelease = false } = options;
     const [owner, repo] = repository.split('/');
     if (!owner || !repo) {
         throw new Error(`Invalid repository format: ${repository}. Expected: owner/repo`);
@@ -33162,6 +33204,7 @@ async function createPluginReleases(options) {
     const octokit = github.getOctokit(githubToken);
     const createdReleases = [];
     const skippedReleases = [];
+    const deletedReleases = [];
     // Get current git remote URL
     const remoteUrl = `https://x-access-token:${githubToken}@github.com/${owner}/${repo}.git`;
     for (const pkg of packages) {
@@ -33172,10 +33215,18 @@ async function createPluginReleases(options) {
             // Check if tag already exists
             const tagExists = await checkTagExists(octokit, owner, repo, tagName);
             if (tagExists) {
-                logger_1.logger.warning(`Tag ${tagName} already exists, skipping`);
-                skippedReleases.push(tagName);
-                logger_1.logger.endGroup();
-                continue;
+                if (forceRelease) {
+                    // Delete existing release and tag
+                    logger_1.logger.warning(`Tag ${tagName} already exists, deleting due to force-release`);
+                    await deleteExistingRelease(octokit, owner, repo, tagName, remoteUrl);
+                    deletedReleases.push(tagName);
+                }
+                else {
+                    logger_1.logger.warning(`Tag ${tagName} already exists, skipping`);
+                    skippedReleases.push(tagName);
+                    logger_1.logger.endGroup();
+                    continue;
+                }
             }
             // Create git tag on current commit
             logger_1.logger.info(`Creating tag: ${tagName}`);
@@ -33221,7 +33272,14 @@ async function createPluginReleases(options) {
     logger_1.logger.header('Release Creation Summary');
     logger_1.logger.info(`Releases created: ${createdReleases.length}`);
     logger_1.logger.info(`Releases skipped: ${skippedReleases.length}`);
+    logger_1.logger.info(`Releases deleted: ${deletedReleases.length}`);
     logger_1.logger.info(`Total processed: ${packages.length}`);
+    if (deletedReleases.length > 0) {
+        logger_1.logger.warning('Deleted releases (force-release):');
+        for (const tag of deletedReleases) {
+            logger_1.logger.info(`  - ${tag}`);
+        }
+    }
     if (createdReleases.length > 0) {
         logger_1.logger.success('Created releases:');
         for (const tag of createdReleases) {
@@ -33234,7 +33292,7 @@ async function createPluginReleases(options) {
             logger_1.logger.info(`  - ${tag}`);
         }
     }
-    return { createdReleases, skippedReleases };
+    return { createdReleases, skippedReleases, deletedReleases };
 }
 async function checkTagExists(octokit, owner, repo, tagName) {
     try {
@@ -33251,6 +33309,57 @@ async function checkTagExists(octokit, owner, repo, tagName) {
             return false;
         }
         // Re-throw other errors
+        throw error;
+    }
+}
+async function deleteExistingRelease(octokit, owner, repo, tagName, remoteUrl) {
+    try {
+        // 1. Try to find and delete the GitHub release
+        try {
+            const release = await octokit.rest.repos.getReleaseByTag({
+                owner,
+                repo,
+                tag: tagName,
+            });
+            logger_1.logger.info(`  Deleting GitHub release: ${tagName}`);
+            await octokit.rest.repos.deleteRelease({
+                owner,
+                repo,
+                release_id: release.data.id,
+            });
+            logger_1.logger.success(`  ✅ GitHub release deleted`);
+        }
+        catch (error) {
+            // If release doesn't exist (404), that's fine
+            if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
+                logger_1.logger.info(`  No GitHub release found for ${tagName}`);
+            }
+            else {
+                throw error;
+            }
+        }
+        // 2. Delete the git tag locally (if exists)
+        logger_1.logger.info(`  Deleting local tag: ${tagName}`);
+        try {
+            await exec.exec('git', ['tag', '-d', tagName], { ignoreReturnCode: true });
+        }
+        catch {
+            // Ignore errors - tag might not exist locally
+        }
+        // 3. Delete the git tag from remote
+        logger_1.logger.info(`  Deleting remote tag: ${tagName}`);
+        try {
+            await exec.exec('git', ['push', remoteUrl, `:refs/tags/${tagName}`], {
+                ignoreReturnCode: true,
+            });
+            logger_1.logger.success(`  ✅ Remote tag deleted`);
+        }
+        catch (error) {
+            logger_1.logger.warning(`  Failed to delete remote tag (may not exist): ${tagName}`);
+        }
+    }
+    catch (error) {
+        logger_1.logger.error(`Failed to delete release ${tagName}: ${error instanceof Error ? error.message : String(error)}`);
         throw error;
     }
 }

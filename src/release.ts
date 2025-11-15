@@ -15,17 +15,19 @@ export interface ReleaseOptions {
   packages: PackagedPackage[];
   githubToken: string;
   repository: string; // format: "owner/repo"
+  forceRelease?: boolean; // Delete existing releases and tags before creating new ones
 }
 
 export interface ReleaseResult {
   createdReleases: string[];
   skippedReleases: string[];
+  deletedReleases: string[];
 }
 
 export async function createPluginReleases(options: ReleaseOptions): Promise<ReleaseResult> {
   logger.header('Creating GitHub Releases for Plugins');
 
-  const { packages, githubToken, repository } = options;
+  const { packages, githubToken, repository, forceRelease = false } = options;
 
   const [owner, repo] = repository.split('/');
   if (!owner || !repo) {
@@ -36,6 +38,7 @@ export async function createPluginReleases(options: ReleaseOptions): Promise<Rel
 
   const createdReleases: string[] = [];
   const skippedReleases: string[] = [];
+  const deletedReleases: string[] = [];
 
   // Get current git remote URL
   const remoteUrl = `https://x-access-token:${githubToken}@github.com/${owner}/${repo}.git`;
@@ -51,10 +54,17 @@ export async function createPluginReleases(options: ReleaseOptions): Promise<Rel
       const tagExists = await checkTagExists(octokit, owner, repo, tagName);
 
       if (tagExists) {
-        logger.warning(`Tag ${tagName} already exists, skipping`);
-        skippedReleases.push(tagName);
-        logger.endGroup();
-        continue;
+        if (forceRelease) {
+          // Delete existing release and tag
+          logger.warning(`Tag ${tagName} already exists, deleting due to force-release`);
+          await deleteExistingRelease(octokit, owner, repo, tagName, remoteUrl);
+          deletedReleases.push(tagName);
+        } else {
+          logger.warning(`Tag ${tagName} already exists, skipping`);
+          skippedReleases.push(tagName);
+          logger.endGroup();
+          continue;
+        }
       }
 
       // Create git tag on current commit
@@ -108,7 +118,15 @@ export async function createPluginReleases(options: ReleaseOptions): Promise<Rel
   logger.header('Release Creation Summary');
   logger.info(`Releases created: ${createdReleases.length}`);
   logger.info(`Releases skipped: ${skippedReleases.length}`);
+  logger.info(`Releases deleted: ${deletedReleases.length}`);
   logger.info(`Total processed: ${packages.length}`);
+
+  if (deletedReleases.length > 0) {
+    logger.warning('Deleted releases (force-release):');
+    for (const tag of deletedReleases) {
+      logger.info(`  - ${tag}`);
+    }
+  }
 
   if (createdReleases.length > 0) {
     logger.success('Created releases:');
@@ -124,7 +142,7 @@ export async function createPluginReleases(options: ReleaseOptions): Promise<Rel
     }
   }
 
-  return { createdReleases, skippedReleases };
+  return { createdReleases, skippedReleases, deletedReleases };
 }
 
 async function checkTagExists(
@@ -146,6 +164,64 @@ async function checkTagExists(
       return false;
     }
     // Re-throw other errors
+    throw error;
+  }
+}
+
+async function deleteExistingRelease(
+  octokit: ReturnType<typeof github.getOctokit>,
+  owner: string,
+  repo: string,
+  tagName: string,
+  remoteUrl: string
+): Promise<void> {
+  try {
+    // 1. Try to find and delete the GitHub release
+    try {
+      const release = await octokit.rest.repos.getReleaseByTag({
+        owner,
+        repo,
+        tag: tagName,
+      });
+
+      logger.info(`  Deleting GitHub release: ${tagName}`);
+      await octokit.rest.repos.deleteRelease({
+        owner,
+        repo,
+        release_id: release.data.id,
+      });
+      logger.success(`  ✅ GitHub release deleted`);
+    } catch (error) {
+      // If release doesn't exist (404), that's fine
+      if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
+        logger.info(`  No GitHub release found for ${tagName}`);
+      } else {
+        throw error;
+      }
+    }
+
+    // 2. Delete the git tag locally (if exists)
+    logger.info(`  Deleting local tag: ${tagName}`);
+    try {
+      await exec.exec('git', ['tag', '-d', tagName], { ignoreReturnCode: true });
+    } catch {
+      // Ignore errors - tag might not exist locally
+    }
+
+    // 3. Delete the git tag from remote
+    logger.info(`  Deleting remote tag: ${tagName}`);
+    try {
+      await exec.exec('git', ['push', remoteUrl, `:refs/tags/${tagName}`], {
+        ignoreReturnCode: true,
+      });
+      logger.success(`  ✅ Remote tag deleted`);
+    } catch (error) {
+      logger.warning(`  Failed to delete remote tag (may not exist): ${tagName}`);
+    }
+  } catch (error) {
+    logger.error(
+      `Failed to delete release ${tagName}: ${error instanceof Error ? error.message : String(error)}`
+    );
     throw error;
   }
 }

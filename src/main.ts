@@ -19,6 +19,7 @@ async function run(): Promise<void> {
     const ociUsername = core.getInput('oci-username');
     const ociToken = core.getInput('oci-token');
     const githubToken = core.getInput('github-token');
+    const forceRelease = core.getInput('force-release') === 'true';
     const githubRepository = process.env.GITHUB_REPOSITORY || '';
 
     logger.header('Cola Package Action');
@@ -74,6 +75,7 @@ async function run(): Promise<void> {
         registry: ociRegistry,
         username: ociUsername,
         token: ociToken,
+        forceRelease,
       });
     }
 
@@ -87,6 +89,7 @@ async function run(): Promise<void> {
         packages: packageResult.packages,
         githubToken,
         repository: githubRepository,
+        forceRelease,
       });
     }
 
